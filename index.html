@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Time your swing, launch the ball into low Earth orbit, and knock satellite internet out of the sky.">
+<meta name="theme-color" content="#070b1f">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+</style>
+<title>Satellite Slugger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Martian+Mono:wght@400;600;800&display=swap">
+<style>
+/* Layout: ballpark scoreboard bolted above a night-game canvas; one dark world, amber scoreboard + fiber-cyan power color */
+:root{
+  --night:#070b1f;
+  --panel:#0f1536;
+  --panel-edge:#232c63;
+  --chalk:#f2efe4;
+  --muted:#8c94c4;
+  --amber:#ffb547;
+  --fiber:#3fe3ff;
+  --flare:#ff5a3c;
+  --display:'Bowlby One', Impact, 'Arial Black', sans-serif;
+  --mono:'Martian Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--night);color:var(--chalk)}
+body{
+  font-family:var(--mono);font-size:13px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:16px 28px;
+}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+
+.masthead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+.masthead h1{font-family:var(--display);font-weight:400;font-size:clamp(22px,4vw,34px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.masthead h1 span{color:var(--fiber)}
+.masthead p{margin:0;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+
+.board{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+  background:var(--panel-edge);border:1px solid var(--panel-edge);border-radius:6px;overflow:hidden;
+}
+.cell{background:var(--panel);padding:8px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cell label{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.cell output{font-family:var(--mono);font-weight:800;font-size:20px;color:var(--amber);font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:10px;align-items:center;font-size:10px;color:var(--muted)}
+.dots i{display:inline-block;width:11px;height:11px;border-radius:50%;border:1.5px solid var(--amber);margin-left:3px;vertical-align:-1px}
+.dots i.on{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.dots i.out{border-color:var(--flare)} .dots i.out.on{background:var(--flare);box-shadow:0 0 8px var(--flare)}
+.meter{height:12px;border-radius:3px;background:#0a0f2a;border:1px solid var(--panel-edge);overflow:hidden;margin-top:4px}
+.meter b{display:block;height:100%;width:0;background:linear-gradient(90deg,#1a8fb3,var(--fiber));transition:width .25s}
+.meter.full b{animation:pulse .6s infinite alternate}
+@keyframes pulse{to{filter:brightness(1.6)}}
+
+.stage{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--panel-edge);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;aspect-ratio:16/10;max-width:100%;cursor:pointer;background:#04061a}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(ellipse at center,rgba(7,11,31,.72),rgba(7,11,31,.92))}
+.card{max-width:520px;text-align:center;display:flex;flex-direction:column;gap:clamp(6px,1.6vw,14px);align-items:center}
+.card h2{font-family:var(--display);font-weight:400;font-size:clamp(26px,6.5vw,60px);line-height:.95;margin:0;text-wrap:balance}
+.card h2 span{color:var(--fiber);text-shadow:0 0 24px rgba(63,227,255,.5)}
+.card p{margin:0;color:#c9cdea;line-height:1.55;font-size:clamp(10.5px,1.5vw,13px);max-width:44ch}
+.card .small{color:var(--muted);font-size:clamp(9px,1.2vw,11px);letter-spacing:.06em}
+.keys{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:clamp(9px,1.2vw,11px);color:var(--muted)}
+.keys kbd{font-family:var(--mono);background:var(--panel);border:1px solid var(--panel-edge);border-bottom-width:3px;border-radius:4px;padding:1px 6px;color:var(--chalk)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+button{font-family:var(--mono);font-weight:800;cursor:pointer;border-radius:5px;border:0;letter-spacing:.06em}
+.go{background:var(--amber);color:#1a1200;font-size:clamp(12px,1.8vw,15px);padding:clamp(8px,1.4vw,12px) clamp(18px,3vw,28px);text-transform:uppercase;box-shadow:0 4px 0 #b06f12}
+.go:active{transform:translateY(3px);box-shadow:0 1px 0 #b06f12}
+.ghost{background:transparent;color:var(--chalk);border:1px solid var(--panel-edge);padding:8px 14px;font-size:11px}
+button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(6px,2vw,18px);width:100%}
+.stats div{display:flex;flex-direction:column;gap:2px}
+.stats b{font-size:clamp(16px,3.4vw,28px);color:var(--amber);font-variant-numeric:tabular-nums}
+.stats span{font-size:clamp(8px,1.1vw,10px);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#bragText{position:absolute;left:-9999px}
+
+.footer{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.ticker{flex:1 1 280px;min-width:0;font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline}
+.ticker b{color:var(--flare);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.ticker span{color:var(--chalk);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.swingBtn{
+  width:100%;font-family:var(--display);font-weight:400;font-size:clamp(22px,4vw,30px);letter-spacing:.06em;text-transform:uppercase;
+  background:var(--amber);color:#1a1200;padding-block:clamp(12px,2vw,16px);border-radius:6px;
+  box-shadow:0 5px 0 #b06f12;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+}
+.swingBtn:active,.swingBtn.hit{transform:translateY(4px);box-shadow:0 1px 0 #b06f12}
+.swingBtn.giga{background:var(--fiber);color:#002a33;box-shadow:0 5px 0 #138aa3}
+.swingBtn.giga:active,.swingBtn.giga.hit{box-shadow:0 1px 0 #138aa3}
+@media (prefers-reduced-motion: reduce){.meter.full b{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <h1>Satellite <span>Slugger</span></h1>
+    <p id="presented">Ground beats orbit</p>
+  </header>
+
+  <section class="board" aria-label="Scoreboard">
+    <div class="cell"><label>Score</label><output id="hScore">0</output></div>
+    <div class="cell"><label>Satellites down</label><output id="hKills">0</output></div>
+    <div class="cell"><label>Customers freed</label><output id="hFreed">0</output></div>
+    <div class="cell"><label>Count</label>
+      <div class="dots" style="margin-top:4px"><span>S<i id="s1"></i><i id="s2"></i></span><span>O<i class="out" id="o1"></i><i class="out" id="o2"></i><i class="out" id="o3"></i></span></div>
+    </div>
+    <div class="cell"><label>Gigabit swing</label><div class="meter" id="meter"><b id="meterFill"></b></div></div>
+  </section>
+
+  <div class="stage" id="stage">
+    <canvas id="game" width="960" height="600" aria-label="Baseball game: swing to knock satellites out of orbit"></canvas>
+
+    <div class="overlay" id="titleOv">
+      <div class="card">
+        <h2>Satellite<br><span>Slugger</span></h2>
+        <p>Satellite internet has a latency problem. You have a bat. Time your swing, launch the ball into low Earth orbit, and clear the sky one dish-shaped disappointment at a time.</p>
+        <div class="keys"><span><kbd>Space</kbd> or tap to swing</span><span>Early = line drive</span><span>Late = moonshot</span></div>
+        <div class="btnrow"><button class="go" id="startBtn">Play ball</button></div>
+        <p class="small" id="brandLine"></p>
+      </div>
+    </div>
+
+    <div class="overlay" id="overOv" hidden>
+      <div class="card">
+        <h2>Game<br><span>Over</span></h2>
+        <div class="stats">
+          <div><b id="fScore">0</b><span>Score</span></div>
+          <div><b id="fKills">0</b><span>Sats down</span></div>
+          <div><b id="fCombo">0</b><span>Best combo</span></div>
+        </div>
+        <p id="fLine">Their constellation will be back next week. So will you.</p>
+        <div class="btnrow">
+          <button class="go" id="againBtn">Swing again</button>
+          <button class="ghost" id="bragBtn">Copy my score</button>
+        </div>
+        <p class="small" id="fBest"></p>
+        <input id="bragText" readonly aria-hidden="true" tabindex="-1">
+      </div>
+    </div>
+  </div>
+
+  <button class="swingBtn" id="swingBtn" type="button">Swing</button>
+
+  <footer class="footer">
+    <div class="ticker"><b>Constellation status</b><span id="ticker">All satellites nominal. For now.</span></div>
+    <button class="ghost" id="muteBtn" aria-pressed="false">Sound: on</button>
+  </footer>
+</div>
+
+<script>
+(() => {
+// ---- Rebrand here ---------------------------------------------------------
+const BRAND = 'Your Local Fiber';          // shown on title screen + batter jersey
+const JERSEY = 'FIBER';                     // short word on the jersey
+// --------------------------------------------------------------------------
+
+const W = 960, H = 600, GY = 500;
+const PLATE_X = 238, ZONE_Y = 452, CONTACT = 48, FAIR = 36, GIGA_MAX = 6;
+const SHELLS = [{y:82, v:52, km:570}, {y:158, v:-74, km:550}, {y:234, v:96, km:540}];
+
+const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+let dpr = 1, scale = 1;
+function resize(){ const r = cv.getBoundingClientRect(); if(!r.width) return; dpr = Math.min(window.devicePixelRatio||1, 2); cv.width = Math.round(r.width*dpr); cv.height = Math.round(r.height*dpr); scale = r.width / W; }
+new ResizeObserver(resize).observe(cv); resize();
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rand = (a,b) => a + Math.random()*(b-a);
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const lerp = (a,b,t) => a + (b-a)*t;
+const easeOut = t => 1 - Math.pow(1-t, 3);
+
+// ---- copy ----
+const Q = {
+  sat: ['Rebooting… est. 4–6 weeks','Obstruction detected: baseball','Latency: ∞ ms','Rain fade: severe','Speeds may vary. Down.','Connection lost (literally)','Support ticket #∞ filed','Deprioritized. Permanently.','Weather in space: baseballs','Dish alignment: optional','Now 0% packet delivery','Coverage map unchanged','Firmware update: gravity','Please check your cables'],
+  launch: ['They launched 6 more.','Another rocket. Another batch.','Fresh satellites. Same latency.','Constellation refilled. Swing harder.','More dishes in the sky. Bless their hearts.'],
+  miss: ['Swing and a miss. Buffering…','Whiff. Must be the jitter.','Strike! Signal dropped.','Missed. Blame the cloud cover.'],
+  looking: ['Strike looking. Were you on Wi-Fi?','Called strike. Your packet never arrived.','Strike. You froze like a video call.'],
+  lost: ['Lost in orbit. Like their support queue.','Clean miss. Space is big. So is their coverage promise.','Into the void. No satellites were harmed.'],
+  foul: ['Foul. Like rain fade.','Foul ball. Signal bounced.','Foul. Try a hardwired swing.'],
+  out: ['Time to reset the router.','Three strikes. Like three hours on hold.','Unplug it. Wait 30 seconds. Try again.'],
+  pitch: [
+    {n:'Latency Fastball', m:1.16, ay:0,   w:4},
+    {n:'Buffering Changeup', m:0.66, ay:0, w:3},
+    {n:'Rain-Fade Curve', m:0.94, ay:760,  w:2},
+    {n:'Packet-Loss Knuckler', m:0.82, ay:0, w:2, knuckle:true},
+  ],
+};
+
+// ---- audio ----
+let ac = null, muted = false, noiseBuf = null;
+function audio(){
+  if(!ac){ try{ ac = new (window.AudioContext||window.webkitAudioContext)(); const len = ac.sampleRate; noiseBuf = ac.createBuffer(1, len, ac.sampleRate); const d = noiseBuf.getChannelData(0); for(let i=0;i<len;i++) d[i] = Math.random()*2-1; }catch(e){ ac = null; } }
+  if(ac && ac.state === 'suspended') ac.resume();
+}
+function tone(f, dur, type, vol, to){ if(!ac||muted) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f,t); if(to) o.frequency.exponentialRampToValueAtTime(to, t+dur); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001, t+dur); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02); }
+function noise(dur, vol, freq){ if(!ac||muted||!noiseBuf) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = noiseBuf; f.type='lowpass'; f.frequency.value = freq; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur); s.connect(f).connect(g).connect(ac.destination); s.start(t); s.stop(t+dur+0.02); }
+const sfx = {
+  crack(){ noise(0.09,0.7,4200); tone(1100,0.06,'square',0.18,280); },
+  boom(){ noise(0.7,0.55,650); tone(130,0.5,'sine',0.45,38); },
+  whoosh(){ noise(0.14,0.1,1400); },
+  buzz(){ tone(150,0.28,'sawtooth',0.12,105); },
+  laser(){ tone(1600,0.7,'sawtooth',0.16,80); tone(800,0.7,'square',0.08,60); noise(0.6,0.3,2400); },
+  thunk(){ noise(0.07,0.35,380); },
+  launch(){ noise(1.4,0.18,300); tone(60,1.4,'sawtooth',0.05,180); },
+  out(){ tone(330,0.18,'square',0.12); setTimeout(()=>tone(220,0.35,'square',0.12),170); },
+};
+
+// ---- scene props ----
+const stars = Array.from({length:170}, () => ({x:rand(0,W), y:rand(0,390), r:rand(.4,1.6), tw:rand(0,6.28), sp:rand(1,3)}));
+const city = []; { let x = 0; while(x < W){ const w = rand(18,46), h = rand(14,58); const win = []; for(let i=0;i<Math.floor(w*h/180);i++) win.push([rand(3,w-4), rand(4,h-3)]); city.push({x,w,h,win}); x += w + rand(0,4); } }
+
+// ---- state ----
+let best = 0; try { best = +localStorage.getItem('ffBest') || 0; } catch(e){}
+const S = {};
+function reset(){
+  Object.assign(S, {mode:'title', score:0, kills:0, freed:0, strikes:0, outs:0, giga:0, pitches:0, bestCombo:0,
+    phase:'idle', timer:0, windupTotal:1, ball:null, swing:null, swungThis:false, pendingContact:null,
+    pitchLabel:null, sats:[], parts:[], texts:[], beams:[], banner:null, shake:0, freeze:0, flash:0,
+    launchCd:0, release:0, hint:6});
+  SHELLS.forEach((sh,i) => { for(let k=0;k<4;k++) spawnSat(i, (k+0.5)*W/4 + rand(-60,60)); });
+}
+function spawnSat(shell, x){ const sh = SHELLS[shell]; S.sats.push({x, y:sh.y + rand(-8,8), vx:sh.v*rand(.9,1.1), bob:rand(0,6.28), alive:true}); }
+
+function setTicker(t){ $('ticker').textContent = t; }
+
+function start(){
+  audio(); reset(); S.mode = 'play';
+  $('titleOv').hidden = true; $('overOv').hidden = true;
+  nextPitch(1.4); setTicker('Batter up. Satellites overhead: ' + S.sats.length + '.');
+  cv.focus?.();
+}
+function nextPitch(delay){ S.phase = 'windup'; S.windupTotal = delay ?? rand(0.9,1.3); S.timer = S.windupTotal; S.ball = null; S.swungThis = false; S.pendingContact = null; }
+
+function throwPitch(){
+  const lvl = Math.min(S.pitches, 40); S.pitches++;
+  const pool = S.pitches < 4 ? Q.pitch.slice(0,2) : Q.pitch;
+  const tot = pool.reduce((a,p)=>a+p.w,0); let r = Math.random()*tot, type = pool[0];
+  for(const p of pool){ if((r -= p.w) < 0){ type = p; break; } }
+  const v = (560 + lvl*10) * type.m * rand(.94,1.06);
+  const x0 = 728, y0 = 416, ty = ZONE_Y + rand(-5,5), T = (x0-PLATE_X)/v;
+  const vy = (ty - y0 - 0.5*type.ay*T*T)/T;
+  S.ball = {x:x0, y:y0, vx:-v, vy, ay:type.ay, knuckle:!!type.knuckle, kt:0, state:'pitch', trail:[], killed:0, missed:false};
+  S.pitchLabel = {s: type.n.toUpperCase() + ' · ' + Math.round(v/7.2) + ' MPH', life:1.6};
+  S.phase = 'pitch'; S.release = 0.35; sfx.whoosh();
+}
+
+function swing(){
+  if(S.mode !== 'play') return;
+  audio();
+  if(S.swing && S.swing.t < 0.42) return;
+  S.swing = {t:0}; sfx.whoosh();
+  const b = S.ball;
+  if(S.phase === 'pitch' && b && b.state === 'pitch' && !S.swungThis){
+    S.swungThis = true;
+    const lead = 0.045, px = b.x + b.vx*lead, diff = px - PLATE_X;
+    if(Math.abs(diff) <= CONTACT) S.pendingContact = {diff, t:lead};
+    else b.missed = true;
+  }
+}
+
+function contact(diff){
+  const b = S.ball, ad = Math.abs(diff), q = 1 - ad/CONTACT;
+  b.x = Math.max(b.x, PLATE_X - 8); b.y = ZONE_Y;
+  if(ad > FAIR){ // foul
+    b.state = 'foul'; b.vx = rand(-760,-480); b.vy = rand(-820,-620); b.ay = 650;
+    sfx.crack(); S.shake = 3;
+    floatText(PLATE_X, ZONE_Y - 60, 'FOUL', '#f2efe4', 22);
+    if(S.strikes < 2) S.strikes++;
+    setTicker(pick(Q.foul)); S.phase = 'flight'; return;
+  }
+  const n = diff / FAIR; // +1 early … −1 late
+  const ang = (50 - n*31 + rand(-3,3)) * Math.PI/180;
+  const perfect = ad < 7;
+  S.freeze = perfect ? 0.11 : 0.06;
+  if(perfect){ S.score += 50; floatText(PLATE_X+20, ZONE_Y-70, 'PERFECT +50', '#ffb547', 22); }
+  else floatText(PLATE_X+20, ZONE_Y-70, n > 0.35 ? 'LINE DRIVE' : n < -0.35 ? 'MOONSHOT' : 'CRUSHED', '#f2efe4', 18);
+  if(S.giga >= GIGA_MAX){ laser(ang); return; }
+  const sp = 1150 + q*560;
+  b.state = 'hit'; b.vx = Math.cos(ang)*sp; b.vy = -Math.sin(ang)*sp; b.ay = 190; b.killed = 0; b.trail = [];
+  sfx.crack(); S.shake = perfect ? 7 : 4; S.phase = 'flight';
+}
+
+function laser(ang){
+  const ox = PLATE_X + 10, oy = ZONE_Y, dx = Math.cos(ang), dy = -Math.sin(ang);
+  let n = 0;
+  for(const s of S.sats){ if(!s.alive) continue; const rx = s.x-ox, ry = s.y-oy, t = rx*dx + ry*dy; if(t < 0) continue; const perp = Math.abs(rx*dy - ry*dx); if(perp < 38){ n++; killSat(s, n, t/1800); } }
+  S.giga = 0; S.beams.push({x:ox, y:oy, ang, life:0.9});
+  S.flash = 1; S.shake = 14; S.ball.state = 'gone'; sfx.laser();
+  S.banner = {s:'GIGABIT SWING', sub: n ? n + ' satellites deorbited at the speed of light' : 'Symmetrical speeds. Asymmetrical aim.', life:2, c:'#3fe3ff'};
+  if(n > S.bestCombo) S.bestCombo = n;
+  S.phase = 'result'; S.timer = 1.8;
+}
+
+function killSat(s, combo, delay=0){
+  s.alive = false; S.kills++; if(S.giga < GIGA_MAX) S.giga++;
+  const pts = 100*combo; S.score += pts;
+  const freed = Math.round(rand(900,2600)/10)*10; S.freed += freed;
+  const fx = () => {
+    explode(s.x, s.y);
+    floatText(s.x, s.y - 26, '+' + pts + (combo > 1 ? ' ×' + combo : ''), '#ffb547', 18);
+    floatText(s.x, s.y - 6, pick(Q.sat), '#f2efe4', 12.5, 2.2);
+    sfx.boom(); S.shake = Math.max(S.shake, 8);
+  };
+  delay ? setTimeout(fx, delay*1000) : fx();
+  setTicker(freed.toLocaleString() + ' customers just discovered their local fiber provider.');
+}
+
+function strike(lines){
+  S.strikes++; sfx.buzz();
+  if(S.strikes >= 3){
+    S.strikes = 0; S.outs++; sfx.out();
+    S.banner = {s:'OUT!', sub:pick(Q.out), life:1.8, c:'#ff5a3c'};
+    if(S.outs >= 3){ S.phase = 'over'; S.timer = 1.9; return; }
+  } else {
+    floatText(PLATE_X, ZONE_Y - 70, 'STRIKE ' + S.strikes, '#ff5a3c', 22);
+  }
+  setTicker(pick(lines));
+}
+
+function launchBatch(){
+  const shell = Math.floor(Math.random()*3), sh = SHELLS[shell], dir = Math.sign(sh.v);
+  for(let i=0;i<6;i++){ const x = dir > 0 ? -70 - i*64 : W + 70 + i*64; S.sats.push({x, y:sh.y + rand(-6,6), vx:sh.v*1.15, bob:rand(0,6.28), alive:true}); }
+  S.banner = {s:'NEW LAUNCH', sub:pick(Q.launch), life:2.2, c:'#f2efe4'};
+  sfx.launch(); setTicker('Six more satellites inbound on the ' + sh.km + ' km shell.');
+}
+
+// ---- effects ----
+function explode(x,y){
+  const cols = ['#ffd36b','#ff8a3c','#fff3c4','#ff5a3c'];
+  for(let i=0;i<30;i++){ const a = rand(0,6.28), sp = rand(60,420); S.parts.push({t:'spark', x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:rand(.4,1), max:1, c:pick(cols), r:rand(1.5,3.5)}); }
+  for(let i=0;i<8;i++){ const a = rand(0,6.28), sp = rand(40,200); S.parts.push({t:'debris', x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-40, life:rand(1.2,2.2), max:2.2, c:i<5?'#2b4fa8':'#c9ccd6', w:rand(6,14), h:rand(3,7), rot:rand(0,6), vr:rand(-9,9)}); }
+  S.parts.push({t:'ring', x, y, life:.5, max:.5});
+}
+function floatText(x,y,s,c,size,life=1.3){ S.texts.push({x:Math.min(Math.max(x,90),W-90), y, s, c, size, life, max:life}); }
+
+// ---- update ----
+function update(dt){
+  S.t = (S.t||0) + dt;
+  if(S.freeze > 0){ S.freeze -= dt; return; }
+
+  for(const s of S.sats){ s.x += s.vx*dt; if(s.vx > 0 && s.x > W+70) s.x = -70; if(s.vx < 0 && s.x < -70) s.x = W+70; }
+  S.sats = S.sats.filter(s => s.alive);
+
+  if(S.mode === 'play'){
+    S.launchCd -= dt;
+    if(S.sats.length < 7 && S.launchCd <= 0){ launchBatch(); S.launchCd = 7; }
+  }
+
+  if(S.swing) S.swing.t += dt;
+  if(S.release > 0) S.release -= dt;
+
+  const b = S.ball;
+  if(S.pendingContact){ S.pendingContact.t -= dt; if(S.pendingContact.t <= 0){ const d = S.pendingContact.diff; S.pendingContact = null; if(b && b.state === 'pitch') contact(d); } }
+
+  if(S.phase === 'windup'){ S.timer -= dt; if(S.timer <= 0) throwPitch(); }
+  else if(b){
+    if(b.state === 'pitch'){
+      b.vy += b.ay*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.kt += dt;
+      if(b.knuckle) b.y += Math.sin(b.kt*22)*1.4;
+      if(b.x < PLATE_X - 70 && S.phase === 'pitch'){ S.phase = 'caught'; strike(b.missed ? Q.miss : Q.looking); }
+      if(b.x < 40){ b.state = 'gone'; sfx.thunk(); if(S.phase === 'caught'){ S.phase = S.phase === 'over' ? 'over' : 'result'; S.timer = 0.9; } }
+    } else if(b.state === 'hit'){
+      const steps = 4;
+      for(let k=0;k<steps;k++){
+        b.vy += b.ay*dt/steps; b.x += b.vx*dt/steps; b.y += b.vy*dt/steps;
+        for(const s of S.sats){ if(s.alive && Math.abs(s.x-b.x) < 40 && Math.abs(s.y-b.y) < 18){ b.killed++; killSat(s, b.killed); } }
+      }
+      b.trail.push([b.x,b.y]); if(b.trail.length > 22) b.trail.shift();
+      if(b.y < -40 || b.x > W+40 || b.y > GY){
+        b.state = 'gone';
+        if(b.killed === 0){ if(S.strikes < 2) S.strikes++; setTicker(pick(Q.lost)); floatText(W*0.6, 300, 'LOST IN ORBIT', '#8c94c4', 18); }
+        else { if(b.killed > S.bestCombo) S.bestCombo = b.killed; if(b.killed > 1) S.banner = {s: b.killed + '-SAT COMBO', sub:'That’s one way to reduce space junk.', life:1.8, c:'#ffb547'}; }
+        S.phase = 'result'; S.timer = 0.8;
+      }
+    } else if(b.state === 'foul'){
+      b.vy += b.ay*dt; b.x += b.vx*dt; b.y += b.vy*dt;
+      if(b.x < -30 || b.y > H){ b.state = 'gone'; S.phase = 'result'; S.timer = 0.6; }
+    }
+  }
+  if(S.phase === 'result'){ S.timer -= dt; if(S.timer <= 0 && S.mode === 'play') nextPitch(); }
+  if(S.phase === 'over'){ S.timer -= dt; if(S.timer <= 0 && S.mode === 'play') gameOver(); }
+
+  for(const p of S.parts){ p.life -= dt; if(p.t !== 'ring'){ p.x += p.vx*dt; p.y += p.vy*dt; p.vy += (p.t==='debris'?120:60)*dt; p.vx *= 0.985; if(p.rot !== undefined) p.rot += p.vr*dt; } }
+  S.parts = S.parts.filter(p => p.life > 0);
+  for(const t of S.texts){ t.life -= dt; t.y -= 26*dt; }
+  S.texts = S.texts.filter(t => t.life > 0);
+  for(const bm of S.beams) bm.life -= dt; S.beams = S.beams.filter(bm => bm.life > 0);
+  if(S.banner){ S.banner.life -= dt; if(S.banner.life <= 0) S.banner = null; }
+  if(S.pitchLabel){ S.pitchLabel.life -= dt; if(S.pitchLabel.life <= 0) S.pitchLabel = null; }
+  S.shake *= 0.86; S.flash = Math.max(0, S.flash - dt*2.2);
+  if(S.mode === 'play' && S.hint > 0 && S.pitches > 3) S.hint -= dt;
+}
+
+function gameOver(){
+  S.mode = 'over';
+  if(S.score > best){ best = S.score; try{ localStorage.setItem('ffBest', best); }catch(e){} }
+  $('fScore').textContent = S.score.toLocaleString();
+  $('fKills').textContent = S.kills;
+  $('fCombo').textContent = S.bestCombo;
+  $('fLine').textContent = S.kills ? S.freed.toLocaleString() + ' customers freed from their dish. Their constellation will be back next week. So will you.' : 'Not a single satellite. Maybe check your connection?';
+  $('fBest').textContent = 'Best this browser: ' + best.toLocaleString();
+  $('overOv').hidden = false; $('againBtn').focus();
+  setTicker('Game over. Satellites remaining: ' + S.sats.length + '. Ground fiber remaining: all of it.');
+}
+
+// ---- draw ----
+function draw(){
+  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
+  ctx.save();
+  if(S.shake > 0.3 && !reduceMotion) ctx.translate(rand(-S.shake,S.shake), rand(-S.shake,S.shake));
+  drawSky(); drawOrbits(); drawSats(); drawGround(); drawZone(); drawPitcher(); drawBatter(); drawBall(); drawBeams(); drawParts(); drawTexts();
+  ctx.restore();
+  drawHud();
+  if(S.flash > 0){ ctx.fillStyle = `rgba(160,245,255,${S.flash*0.55})`; ctx.fillRect(0,0,W,H); }
+}
+
+function drawSky(){
+  const g = ctx.createLinearGradient(0,0,0,GY);
+  g.addColorStop(0,'#03051a'); g.addColorStop(.5,'#0d1440'); g.addColorStop(.8,'#33275a'); g.addColorStop(.94,'#a44f68'); g.addColorStop(1,'#ea8b58');
+  ctx.fillStyle = g; ctx.fillRect(-20,-20,W+40,GY+20);
+  for(const s of stars){ const a = 0.35 + 0.65*Math.abs(Math.sin(S.t*s.sp*0.5 + s.tw)) * (1 - s.y/420); ctx.fillStyle = `rgba(235,240,255,${a})`; ctx.fillRect(s.x, s.y, s.r, s.r); }
+  // city
+  ctx.fillStyle = '#1a1533';
+  for(const c of city){ ctx.fillRect(c.x, GY - c.h, c.w, c.h); }
+  ctx.fillStyle = 'rgba(255,190,90,.55)';
+  for(const c of city) for(const w of c.win) ctx.fillRect(c.x + w[0], GY - c.h + w[1], 2, 2);
+  // light towers
+  for(const lx of [70, 890]){
+    ctx.strokeStyle = '#2a2448'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(lx, GY); ctx.lineTo(lx, 300); ctx.stroke();
+    const rg = ctx.createRadialGradient(lx, 292, 4, lx, 292, 120); rg.addColorStop(0,'rgba(255,248,220,.55)'); rg.addColorStop(1,'rgba(255,248,220,0)');
+    ctx.fillStyle = rg; ctx.fillRect(lx-120, 172, 240, 240);
+    ctx.fillStyle = '#fff6da'; ctx.fillRect(lx-22, 284, 44, 14);
+    ctx.fillStyle = '#2a2448'; for(let i=1;i<4;i++) ctx.fillRect(lx-22 + i*11, 284, 1.5, 14);
+  }
+}
+
+function drawOrbits(){
+  ctx.font = '600 10px "Martian Mono", monospace'; ctx.textBaseline = 'bottom';
+  SHELLS.forEach((sh,i) => {
+    ctx.setLineDash([2,9]); ctx.strokeStyle = 'rgba(140,160,255,.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, sh.y); ctx.lineTo(W, sh.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(160,175,230,.5)'; ctx.fillText('LEO SHELL ' + 'ABC'[i] + ' · ' + sh.km + ' KM', 12, sh.y - 20);
+  });
+}
+
+function drawSats(){
+  for(const s of S.sats){
+    const y = s.y + Math.sin(S.t*1.4 + s.bob)*3;
+    ctx.save(); ctx.translate(s.x, y); ctx.rotate(Math.sin(S.t*.8 + s.bob)*0.08);
+    ctx.strokeStyle = '#9aa0b4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-14,0); ctx.lineTo(14,0); ctx.stroke();
+    for(const px of [-36, 13]){
+      ctx.fillStyle = '#2b4fa8'; ctx.fillRect(px, -6, 23, 12);
+      ctx.strokeStyle = 'rgba(140,175,255,.7)'; ctx.lineWidth = .8;
+      ctx.beginPath(); for(let k=1;k<4;k++){ ctx.moveTo(px + k*5.75, -6); ctx.lineTo(px + k*5.75, 6); } ctx.moveTo(px, 0); ctx.lineTo(px+23, 0); ctx.stroke();
+    }
+    ctx.fillStyle = '#c9ccd6'; ctx.fillRect(-8,-8,16,16);
+    ctx.fillStyle = '#7d8296'; ctx.fillRect(-8,2,16,3);
+    ctx.fillStyle = '#e2e5ee'; ctx.beginPath(); ctx.ellipse(0,-10,6,2.5,0,0,Math.PI*2); ctx.fill();
+    if(Math.sin(S.t*5 + s.bob*3) > .3){ ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(0,-13,1.8,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
+function drawGround(){
+  const g = ctx.createLinearGradient(0,GY,0,H); g.addColorStop(0,'#2f6d3b'); g.addColorStop(1,'#163a20');
+  ctx.fillStyle = g; ctx.fillRect(-20,GY,W+40,H-GY+20);
+  ctx.fillStyle = 'rgba(255,255,255,.035)'; for(let i=0;i<W;i+=80) ctx.fillRect(i, GY, 40, H-GY);
+  ctx.fillStyle = '#a06c47'; ctx.beginPath(); ctx.ellipse(PLATE_X-20, GY+12, 150, 24, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(762, GY+8, 78, 15, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b77f57'; ctx.beginPath(); ctx.ellipse(762, GY+3, 46, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(242,239,228,.75)'; ctx.lineWidth = 2;
+  ctx.strokeRect(PLATE_X-118, GY+4, 70, 16); ctx.strokeRect(PLATE_X+18, GY+4, 70, 16);
+  ctx.fillStyle = '#f2efe4'; ctx.beginPath(); ctx.moveTo(PLATE_X-14, GY+10); ctx.lineTo(PLATE_X+14, GY+10); ctx.lineTo(PLATE_X+10, GY+15); ctx.lineTo(PLATE_X, GY+17); ctx.lineTo(PLATE_X-10, GY+15); ctx.closePath(); ctx.fill();
+  // backstop
+  ctx.strokeStyle = 'rgba(200,205,225,.18)'; ctx.lineWidth = 1;
+  for(let x=4;x<70;x+=8){ ctx.beginPath(); ctx.moveTo(x, 380); ctx.lineTo(x, GY+4); ctx.stroke(); }
+  for(let y=380;y<GY;y+=8){ ctx.beginPath(); ctx.moveTo(4, y); ctx.lineTo(66, y); ctx.stroke(); }
+}
+
+function drawZone(){
+  if(S.mode !== 'play') return;
+  const b = S.ball; let a = 0.06;
+  if(b && b.state === 'pitch'){ const d = Math.abs(b.x - PLATE_X); a = d < FAIR ? 0.3 : d < 160 ? 0.06 + 0.14*(1 - d/160) : 0.06; }
+  const ready = S.giga >= GIGA_MAX;
+  ctx.fillStyle = ready ? `rgba(63,227,255,${a})` : `rgba(255,181,71,${a})`;
+  ctx.fillRect(PLATE_X - FAIR, ZONE_Y - 34, FAIR*2, 68);
+  ctx.fillStyle = ready ? `rgba(63,227,255,${a+0.15})` : `rgba(255,181,71,${a+0.15})`;
+  ctx.fillRect(PLATE_X - 1, ZONE_Y - 34, 2, 68);
+}
+
+function drawBatter(){
+  const fx = PLATE_X - 72, fy = GY + 6;
+  ctx.save(); ctx.translate(fx, fy); ctx.lineCap = 'round';
+  // Swing rotates counter-clockwise: bat drops from behind the helmet, comes through level at the
+  // zone (contact lands ~0.045s after input), and finishes high over the front shoulder.
+  const REST = -2.3, CONTACT_A = 0.13 - Math.PI*2, FINISH = -1.12 - Math.PI*2;
+  const sw = S.swing; let ang = REST + Math.sin(S.t*3)*0.05, twist = 0, hx = 8, hy = -84, smear = 0;
+  if(sw){ const t = sw.t;
+    if(t < 0.045){ const p = Math.pow(t/0.045, 1.25); ang = lerp(REST, CONTACT_A, p); twist = p*0.8; hx = lerp(8,24,p); hy = lerp(-84,-72,p); smear = 1; }
+    else if(t < 0.2){ const p = easeOut((t-0.045)/0.155); ang = lerp(CONTACT_A, FINISH, p); twist = 0.8 + p*0.2; hx = lerp(24,20,p); hy = lerp(-72,-90,p); smear = 1 - p; }
+    else if(t < 0.34){ ang = FINISH; twist = 1; hx = 20; hy = -90; }
+    else if(t < 0.62){ const p = easeOut((t-0.34)/0.28); ang = lerp(FINISH + Math.PI*2, REST, p); twist = 1-p; hx = lerp(20,8,p); hy = lerp(-90,-84,p); }
+    else S.swing = null;
+  }
+  // legs
+  ctx.strokeStyle = '#e8e4d6'; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(0,-46); ctx.lineTo(-15 + twist*4, 0); ctx.moveTo(0,-46); ctx.lineTo(17,0); ctx.stroke();
+  ctx.fillStyle = '#14204a'; ctx.fillRect(-21 + twist*4, -4, 12, 5); ctx.fillRect(13, -4, 12, 5);
+  // torso
+  ctx.strokeStyle = '#1f6fd1'; ctx.lineWidth = 17; ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(3 + twist*4,-84); ctx.stroke();
+  ctx.save(); ctx.translate(2 + twist*2, -66); ctx.fillStyle = '#f2efe4'; ctx.font = '800 6px "Martian Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText(JERSEY, 0, 0); ctx.restore();
+  // hands & bat
+  ctx.strokeStyle = '#1f6fd1'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(4,-82); ctx.lineTo(hx, hy); ctx.stroke();
+  // bat foreshortens when pointing toward/away from the camera (straight up or down)
+  const batLen = a => 74 * (0.5 + 0.5*Math.abs(Math.cos(a)));
+  if(smear > 0){
+    for(const [off, al] of [[0.45, 0.28], [0.9, 0.14]]){
+      const ga = ang + off, gl = batLen(ga);
+      ctx.strokeStyle = `rgba(240,225,190,${al*smear})`; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(hx + Math.cos(ga)*28, hy + Math.sin(ga)*28); ctx.lineTo(hx + Math.cos(ga)*gl, hy + Math.sin(ga)*gl); ctx.stroke();
+    }
+  }
+  const ready = S.giga >= GIGA_MAX, L = batLen(ang), tx = hx + Math.cos(ang)*L, ty = hy + Math.sin(ang)*L;
+  if(ready){ ctx.strokeStyle = 'rgba(63,227,255,.35)'; ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(tx,ty); ctx.stroke(); }
+  const bg = ctx.createLinearGradient(hx,hy,tx,ty); bg.addColorStop(0, ready ? '#7cefff' : '#b98a52'); bg.addColorStop(1, ready ? '#e6fdff' : '#e3bd84');
+  ctx.strokeStyle = bg; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx + Math.cos(ang)*30, hy + Math.sin(ang)*30); ctx.stroke();
+  ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(hx + Math.cos(ang)*30, hy + Math.sin(ang)*30); ctx.lineTo(tx,ty); ctx.stroke();
+  ctx.fillStyle = '#d9a37a'; ctx.beginPath(); ctx.arc(hx,hy,4.5,0,Math.PI*2); ctx.fill();
+  // head + helmet
+  ctx.fillStyle = '#d9a37a'; ctx.beginPath(); ctx.arc(6,-98,10,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#14204a'; ctx.beginPath(); ctx.arc(5,-100,11,Math.PI*0.95,Math.PI*2.05); ctx.fill(); ctx.fillRect(8,-102,12,4);
+  ctx.restore();
+}
+
+function drawPitcher(){
+  const fx = 762, fy = GY + 1;
+  ctx.save(); ctx.translate(fx, fy); ctx.lineCap = 'round';
+  let w = 0, armA = 1.6, kick = 0;
+  if(S.phase === 'windup' && S.mode === 'play'){ w = 1 - S.timer / S.windupTotal;
+    if(w < 0.75){ armA = lerp(1.6, -0.9, w/0.75); kick = Math.sin(Math.min(1,Math.max(0,(w-0.3)/0.45))*Math.PI); }
+    else armA = lerp(-0.9, -3.6, (w-0.75)/0.25);
+  } else if(S.release > 0){ armA = lerp(1.6, 2.7, S.release/0.35); }
+  ctx.strokeStyle = '#4a4f5e'; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(0,-46); ctx.lineTo(12,0); ctx.moveTo(0,-46); ctx.lineTo(-14 - kick*6, -kick*30); ctx.stroke();
+  ctx.strokeStyle = '#6b7183'; ctx.lineWidth = 17; ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-2,-84); ctx.stroke();
+  // glove arm
+  ctx.strokeStyle = '#6b7183'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-4,-80); ctx.lineTo(-20,-66); ctx.stroke();
+  ctx.fillStyle = '#7a4a26'; ctx.beginPath(); ctx.arc(-22,-64,7,0,Math.PI*2); ctx.fill();
+  // throwing arm
+  const ax = Math.cos(armA)*30, ay = -82 + Math.sin(armA)*30;
+  ctx.beginPath(); ctx.moveTo(2,-82); ctx.lineTo(ax, ay); ctx.stroke();
+  if(S.phase === 'windup' && S.mode === 'play'){ ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ax, ay, 5, 0, Math.PI*2); ctx.fill(); }
+  // dish head
+  ctx.save(); ctx.translate(-2,-104); ctx.rotate(-0.35);
+  ctx.fillStyle = '#d7dae3'; ctx.beginPath(); ctx.ellipse(0,0,9,17,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#aab0bf'; ctx.beginPath(); ctx.ellipse(1.5,0,6,13,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#8a90a2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-18,-2); ctx.stroke();
+  ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(-19,-2,2.5,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawBall(){
+  const b = S.ball; if(!b || b.state === 'gone') return;
+  if(b.state === 'hit'){
+    for(let i=0;i<b.trail.length;i++){ const [x,y] = b.trail[i], a = i/b.trail.length; ctx.fillStyle = `rgba(255,220,150,${a*0.5})`; ctx.beginPath(); ctx.arc(x,y,6*a+1,0,Math.PI*2); ctx.fill(); }
+    const rg = ctx.createRadialGradient(b.x,b.y,2,b.x,b.y,20); rg.addColorStop(0,'rgba(255,230,170,.7)'); rg.addColorStop(1,'rgba(255,230,170,0)'); ctx.fillStyle = rg; ctx.fillRect(b.x-20,b.y-20,40,40);
+  }
+  ctx.fillStyle = '#fbfaf5'; ctx.beginPath(); ctx.arc(b.x,b.y,6,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#d6372b'; ctx.lineWidth = 1.2; const r = (S.t*20) % 6.28;
+  ctx.beginPath(); ctx.arc(b.x-3,b.y,4,r-0.9,r+0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(b.x+3,b.y,4,r+Math.PI-0.9,r+Math.PI+0.9); ctx.stroke();
+}
+
+function drawBeams(){
+  for(const bm of S.beams){
+    const a = bm.life/0.9, len = 1800, ex = bm.x + Math.cos(bm.ang)*len, ey = bm.y - Math.sin(bm.ang)*len;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(63,227,255,${a*0.35})`; ctx.lineWidth = 48*a + 6; ctx.beginPath(); ctx.moveTo(bm.x,bm.y); ctx.lineTo(ex,ey); ctx.stroke();
+    ctx.strokeStyle = `rgba(200,250,255,${a})`; ctx.lineWidth = 10*a + 2; ctx.beginPath(); ctx.moveTo(bm.x,bm.y); ctx.lineTo(ex,ey); ctx.stroke();
+  }
+}
+
+function drawParts(){
+  for(const p of S.parts){
+    const a = Math.max(0, p.life/p.max);
+    if(p.t === 'spark'){ ctx.globalAlpha = a; ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
+    else if(p.t === 'debris'){ ctx.globalAlpha = Math.min(1,a*1.5); ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore(); }
+    else { ctx.globalAlpha = a; ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 3*a; ctx.beginPath(); ctx.arc(p.x,p.y,(1-a)*70+8,0,Math.PI*2); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function outlined(s, x, y, font, fill, stroke = 'rgba(5,7,24,.9)', lw = 4){
+  ctx.font = font; ctx.lineJoin = 'round'; ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeText(s, x, y); ctx.fillStyle = fill; ctx.fillText(s, x, y);
+}
+function drawTexts(){
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(const t of S.texts){ ctx.globalAlpha = Math.min(1, t.life/t.max*2); outlined(t.s, t.x, t.y, `800 ${t.size}px "Martian Mono", monospace`, t.c); }
+  ctx.globalAlpha = 1;
+}
+
+function drawHud(){
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if(S.pitchLabel){ ctx.globalAlpha = Math.min(1, S.pitchLabel.life); outlined(S.pitchLabel.s, 740, 330, '800 13px "Martian Mono", monospace', '#ffb547'); ctx.globalAlpha = 1; }
+  if(S.mode === 'play' && S.giga >= GIGA_MAX){ ctx.globalAlpha = 0.6 + 0.4*Math.sin(S.t*8); outlined('GIGABIT SWING READY', PLATE_X, 340, '800 13px "Martian Mono", monospace', '#3fe3ff'); ctx.globalAlpha = 1; }
+  if(S.mode === 'play' && S.hint > 0){ ctx.globalAlpha = Math.min(1, S.hint/2) * 0.9; outlined('Tap or press Space to swing  ·  Early = line drive  ·  Late = moonshot', W/2, H-26, '600 12px "Martian Mono", monospace', '#f2efe4'); ctx.globalAlpha = 1; }
+  if(S.banner){
+    const b = S.banner, a = Math.min(1, b.life*2.5), sc = 1 + Math.max(0, b.life - (b.life > 1.6 ? 1.6 : b.life))*0;
+    ctx.globalAlpha = a;
+    outlined(b.s, W/2, 300, `400 ${58*sc}px "Bowlby One", Impact, sans-serif`, b.c, 'rgba(5,7,24,.95)', 8);
+    if(b.sub) outlined(b.sub, W/2, 346, '600 15px "Martian Mono", monospace', '#f2efe4');
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---- scoreboard ----
+let lastHud = '';
+function syncBoard(){
+  const key = [S.score,S.kills,S.freed,S.strikes,S.outs,S.giga].join('|'); if(key === lastHud) return; lastHud = key;
+  $('hScore').textContent = S.score.toLocaleString();
+  $('hKills').textContent = S.kills;
+  $('hFreed').textContent = S.freed.toLocaleString();
+  $('s1').classList.toggle('on', S.strikes >= 1); $('s2').classList.toggle('on', S.strikes >= 2);
+  ['o1','o2','o3'].forEach((id,i) => $(id).classList.toggle('on', S.outs > i));
+  $('meterFill').style.width = (S.giga/GIGA_MAX*100) + '%';
+  $('meter').classList.toggle('full', S.giga >= GIGA_MAX);
+  $('swingBtn').classList.toggle('giga', S.giga >= GIGA_MAX);
+}
+
+// ---- loop ----
+let last = performance.now();
+function frame(now){ const dt = Math.min(0.033, (now - last)/1000); last = now; update(dt); draw(); syncBoard(); requestAnimationFrame(frame); }
+
+// ---- input ----
+$('stage').addEventListener('pointerdown', e => { if(e.target.closest('.overlay')) return; e.preventDefault(); swing(); });
+window.addEventListener('keydown', e => {
+  if(e.code === 'Space' || e.code === 'Enter'){
+    if(document.activeElement && document.activeElement.tagName === 'BUTTON' && S.mode !== 'play') return;
+    e.preventDefault(); if(S.mode === 'play') swing(); else start();
+  }
+});
+$('startBtn').addEventListener('click', start);
+$('swingBtn').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const btn = $('swingBtn'); btn.classList.add('hit'); setTimeout(() => btn.classList.remove('hit'), 120);
+  if(S.mode === 'play') swing(); else start();
+});
+$('againBtn').addEventListener('click', start);
+$('muteBtn').addEventListener('click', () => { muted = !muted; $('muteBtn').textContent = 'Sound: ' + (muted ? 'off' : 'on'); $('muteBtn').setAttribute('aria-pressed', muted); });
+$('bragBtn').addEventListener('click', () => {
+  const txt = `I knocked ${S.kills} satellites out of orbit in Satellite Slugger (${S.score.toLocaleString()} pts). Ground beats orbit.`;
+  const done = () => { $('bragBtn').textContent = 'Copied'; setTimeout(() => $('bragBtn').textContent = 'Copy my score', 1600); };
+  const fallback = () => { const i = $('bragText'); i.value = txt; i.select(); try{ document.execCommand('copy'); done(); }catch(e){ $('bragBtn').textContent = 'Copy failed'; } };
+  try{ navigator.clipboard.writeText(txt).then(done, fallback); }catch(e){ fallback(); }
+});
+
+$('brandLine').textContent = 'Presented by ' + BRAND;
+$('presented').textContent = BRAND + ' · Ground beats orbit';
+reset();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
