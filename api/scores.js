@@ -3,8 +3,27 @@
 //   GET  /api/scores            -> { scores: [{ id, initials, score, kills }] }   (top 10)
 //   POST /api/scores {initials, score, kills} -> { id, scores }
 
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Vercel lets you pick a custom prefix when connecting storage (e.g. STORAGE_KV_REST_API_URL),
+// so accept any *_REST_API_URL / *_REST_URL pair, then fall back to deriving REST access from an
+// Upstash rediss:// URL (its password is the REST token).
+function findRedis(env) {
+  const names = Object.keys(env);
+  const pick = (re) => names.filter((n) => re.test(n)).sort((a, b) => a.length - b.length).map((n) => env[n]).find(Boolean);
+  const url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL || pick(/_REST_(API_)?URL$/);
+  const token = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || pick(/_REST_(API_)?TOKEN$/);
+  if (url && token) return { url: url.replace(/\/+$/, ''), token };
+  for (const n of names) {
+    if (!/(^|_)(KV|REDIS)_URL$/.test(n)) continue;
+    try {
+      const u = new URL(env[n]);
+      if (/^rediss?:$/.test(u.protocol) && u.hostname.endsWith('.upstash.io') && u.password) {
+        return { url: `https://${u.hostname}`, token: decodeURIComponent(u.password) };
+      }
+    } catch (e) { /* not a URL */ }
+  }
+  return {};
+}
+const { url: REDIS_URL, token: REDIS_TOKEN } = findRedis(process.env);
 const KEY = process.env.LEADERBOARD_KEY || 'satslugger:board';
 const KEEP = 500; // entries kept in storage; only the top 10 are shown
 

@@ -31,8 +31,9 @@ Players who make the top 10 enter three initials, arcade style. Scores are share
 To turn it on:
 
 1. In the Vercel project, open **Storage** (or **Integrations → Marketplace**) and add **Upstash for Redis** (the free tier is plenty).
-2. Connect it to this project. It adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` environment variables (the `UPSTASH_REDIS_REST_*` names also work).
-3. Redeploy.
+2. Connect it to this project, for **Production** (and Preview if you want). It adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` environment variables. The `UPSTASH_REDIS_REST_*` names, a custom prefix (e.g. `STORAGE_KV_REST_API_URL`), or just an Upstash `REDIS_URL` / `KV_URL` all work too.
+3. Redeploy. Environment variables only reach new deployments.
+4. Check `https://<your-site>/api/scores`. It should return `{"scores":[...]}`. If it says storage isn't connected, the variables aren't reaching the deployment yet.
 
 Until storage is connected, the board quietly falls back to scores saved on each player's device.
 
