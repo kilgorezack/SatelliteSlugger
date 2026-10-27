@@ -31,10 +31,10 @@ img{max-width:100%}
   --mono:'Martian Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
   color-scheme:dark;
 }
-html{height:100%;box-sizing:border-box}
+html{height:100%;box-sizing:border-box;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{background:var(--night);color:var(--chalk)}
 body{
-  font-family:var(--mono);font-size:13px;
+  font-family:var(--mono);font-size:13px;touch-action:manipulation;
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px));
   padding-block:clamp(8px,2vh,16px) clamp(10px,2.5vh,24px);
@@ -66,7 +66,7 @@ body{
 .meter.full b{animation:pulse .6s infinite alternate}
 @keyframes pulse{to{filter:brightness(1.6)}}
 
-.stage{width:min(100cqw, 160cqh);aspect-ratio:16/10;max-width:100%;container-type:inline-size;position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--panel-edge);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.stage{width:min(100cqw, 160cqh);height:min(100cqh, 160cqw);max-width:100%;container-type:inline-size;position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--panel-edge);touch-action:manipulation;user-select:none;-webkit-user-select:none}
 canvas{display:block;width:100%;height:100%;cursor:pointer;background:#04061a}
 .overlay{position:absolute;inset:0;display:flex;align-items:safe center;overflow:auto;justify-content:center;padding:16px;background:radial-gradient(ellipse at center,rgba(7,11,31,.72),rgba(7,11,31,.92))}
 .card{max-width:520px;text-align:center;display:flex;flex-direction:column;gap:clamp(6px,1.6cqw,14px);align-items:center}
@@ -100,6 +100,22 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 .swingBtn:active,.swingBtn.hit{transform:translateY(4px);box-shadow:0 1px 0 #b06f12}
 .swingBtn.giga{background:var(--fiber);color:#002a33;box-shadow:0 5px 0 #138aa3}
 .swingBtn.giga:active,.swingBtn.giga.hit{box-shadow:0 1px 0 #138aa3}
+.sm{display:none}
+@media (max-width:600px){
+  .masthead{gap:2px 12px}
+  .masthead p{font-size:9px}
+  .board{grid-template-columns:repeat(6,1fr)}
+  .cell{grid-column:span 2;padding:6px 10px;gap:2px}
+  .cell.count,.cell.giga{grid-column:span 3}
+  .cell label{font-size:8.5px;letter-spacing:.1em}
+  .cell output{font-size:17px}
+  .lg{display:none} .sm{display:inline}
+  .swingBtn{width:100%;font-size:20px;padding:14px 24px}
+  .ticker{flex-basis:0;flex-grow:1;font-size:10.5px}
+  .ticker b{display:none}
+  .ticker span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ghost#muteBtn{padding:6px 10px;font-size:10px}
+}
 @media (prefers-reduced-motion: reduce){.meter.full b{animation:none}}
 </style>
 </head>
@@ -112,12 +128,12 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 
   <section class="board" aria-label="Scoreboard">
     <div class="cell"><label>Score</label><output id="hScore">0</output></div>
-    <div class="cell"><label>Satellites down</label><output id="hKills">0</output></div>
-    <div class="cell"><label>Customers freed</label><output id="hFreed">0</output></div>
-    <div class="cell"><label>Count</label>
+    <div class="cell"><label><span class="lg">Satellites</span><span class="sm">Sats</span> down</label><output id="hKills">0</output></div>
+    <div class="cell"><label><span class="lg">Customers </span>freed</label><output id="hFreed">0</output></div>
+    <div class="cell count"><label>Count</label>
       <div class="dots" style="margin-top:4px"><span>S<i id="s1"></i><i id="s2"></i></span><span>O<i class="out" id="o1"></i><i class="out" id="o2"></i><i class="out" id="o3"></i></span></div>
     </div>
-    <div class="cell"><label>Gigabit swing</label><div class="meter" id="meter"><b id="meterFill"></b></div></div>
+    <div class="cell giga"><label>Gigabit swing</label><div class="meter" id="meter"><b id="meterFill"></b></div></div>
   </section>
 
   <div class="field">
@@ -169,14 +185,24 @@ const BRAND = 'Your Local Fiber';          // shown on title screen + batter jer
 const JERSEY = 'FIBER';                     // short word on the jersey
 // --------------------------------------------------------------------------
 
-const W = 960, H = 600, GY = 500;
-const PLATE_X = 238, ZONE_Y = 452, CONTACT = 48, FAIR = 36, GIGA_MAX = 6;
+const W = 960; let H = 600, GY = 500, TS = 1; // H/GY grow on tall (portrait) screens; TS scales in-canvas text for small screens
+let ZONE_Y = 452;
+const PLATE_X = 238, CONTACT = 48, FAIR = 36, GIGA_MAX = 6;
 const SHELLS = [{y:82, v:52, km:570}, {y:158, v:-74, km:550}, {y:234, v:96, km:540}];
 
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
 let dpr = 1, scale = 1;
-function resize(){ const r = cv.getBoundingClientRect(); if(!r.width) return; dpr = Math.min(window.devicePixelRatio||1, 2); cv.width = Math.round(r.width*dpr); cv.height = Math.round(r.height*dpr); scale = r.width / W; }
+function resize(){
+  const r = cv.getBoundingClientRect(); if(!r.width || !r.height) return;
+  dpr = Math.min(window.devicePixelRatio||1, 2); cv.width = Math.round(r.width*dpr); cv.height = Math.round(r.height*dpr);
+  scale = r.width / W;
+  H = Math.round(Math.min(1540, Math.max(600, W * r.height / r.width)));
+  GY = H - 100; ZONE_Y = GY - 48;
+  const top = 82, bot = GY - 266;
+  SHELLS.forEach((sh,i) => sh.y = top + (bot-top)*i/(SHELLS.length-1));
+  TS = Math.max(1, Math.min(2.4, 0.8/scale));
+}
 new ResizeObserver(resize).observe(cv); resize();
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -222,7 +248,7 @@ const sfx = {
 };
 
 // ---- scene props ----
-const stars = Array.from({length:170}, () => ({x:rand(0,W), y:rand(0,390), r:rand(.4,1.6), tw:rand(0,6.28), sp:rand(1,3)}));
+const stars = Array.from({length:170}, () => ({x:rand(0,W), fy:rand(0,0.8), r:rand(.4,1.6), tw:rand(0,6.28), sp:rand(1,3)}));
 const city = []; { let x = 0; while(x < W){ const w = rand(18,46), h = rand(14,58); const win = []; for(let i=0;i<Math.floor(w*h/180);i++) win.push([rand(3,w-4), rand(4,h-3)]); city.push({x,w,h,win}); x += w + rand(0,4); } }
 
 // ---- state ----
@@ -235,7 +261,7 @@ function reset(){
     launchCd:0, release:0, hint:6});
   SHELLS.forEach((sh,i) => { for(let k=0;k<4;k++) spawnSat(i, (k+0.5)*W/4 + rand(-60,60)); });
 }
-function spawnSat(shell, x){ const sh = SHELLS[shell]; S.sats.push({x, y:sh.y + rand(-8,8), vx:sh.v*rand(.9,1.1), bob:rand(0,6.28), alive:true}); }
+function spawnSat(shell, x){ const sh = SHELLS[shell]; S.sats.push({x, shell, yo:rand(-8,8), y:sh.y, vx:sh.v*rand(.9,1.1), bob:rand(0,6.28), alive:true}); }
 
 function setTicker(t){ $('ticker').textContent = t; }
 
@@ -253,7 +279,7 @@ function throwPitch(){
   const tot = pool.reduce((a,p)=>a+p.w,0); let r = Math.random()*tot, type = pool[0];
   for(const p of pool){ if((r -= p.w) < 0){ type = p; break; } }
   const v = (560 + lvl*10) * type.m * rand(.94,1.06);
-  const x0 = 728, y0 = 416, ty = ZONE_Y + rand(-5,5), T = (x0-PLATE_X)/v;
+  const x0 = 728, y0 = ZONE_Y - 36, ty = ZONE_Y + rand(-5,5), T = (x0-PLATE_X)/v;
   const vy = (ty - y0 - 0.5*type.ay*T*T)/T;
   S.ball = {x:x0, y:y0, vx:-v, vy, ay:type.ay, knuckle:!!type.knuckle, kt:0, state:'pitch', trail:[], killed:0, missed:false};
   S.pitchLabel = {s: type.n.toUpperCase() + ' · ' + Math.round(v/7.2) + ' MPH', life:1.6};
@@ -335,7 +361,7 @@ function strike(lines){
 
 function launchBatch(){
   const shell = Math.floor(Math.random()*3), sh = SHELLS[shell], dir = Math.sign(sh.v);
-  for(let i=0;i<6;i++){ const x = dir > 0 ? -70 - i*64 : W + 70 + i*64; S.sats.push({x, y:sh.y + rand(-6,6), vx:sh.v*1.15, bob:rand(0,6.28), alive:true}); }
+  for(let i=0;i<6;i++){ const x = dir > 0 ? -70 - i*64 : W + 70 + i*64; S.sats.push({x, shell, yo:rand(-6,6), y:sh.y, vx:sh.v*1.15, bob:rand(0,6.28), alive:true}); }
   S.banner = {s:'NEW LAUNCH', sub:pick(Q.launch), life:2.2, c:'#f2efe4'};
   sfx.launch(); setTicker('Six more satellites inbound on the ' + sh.km + ' km shell.');
 }
@@ -354,7 +380,7 @@ function update(dt){
   S.t = (S.t||0) + dt;
   if(S.freeze > 0){ S.freeze -= dt; return; }
 
-  for(const s of S.sats){ s.x += s.vx*dt; if(s.vx > 0 && s.x > W+70) s.x = -70; if(s.vx < 0 && s.x < -70) s.x = W+70; }
+  for(const s of S.sats){ s.y = SHELLS[s.shell].y + s.yo; s.x += s.vx*dt; if(s.vx > 0 && s.x > W+70) s.x = -70; if(s.vx < 0 && s.x < -70) s.x = W+70; }
   S.sats = S.sats.filter(s => s.alive);
 
   if(S.mode === 'play'){
@@ -384,7 +410,7 @@ function update(dt){
       b.trail.push([b.x,b.y]); if(b.trail.length > 22) b.trail.shift();
       if(b.y < -40 || b.x > W+40 || b.y > GY){
         b.state = 'gone';
-        if(b.killed === 0){ if(S.strikes < 2) S.strikes++; setTicker(pick(Q.lost)); floatText(W*0.6, 300, 'LOST IN ORBIT', '#8c94c4', 18); }
+        if(b.killed === 0){ if(S.strikes < 2) S.strikes++; setTicker(pick(Q.lost)); floatText(W*0.6, GY - 200, 'LOST IN ORBIT', '#8c94c4', 18); }
         else { if(b.killed > S.bestCombo) S.bestCombo = b.killed; if(b.killed > 1) S.banner = {s: b.killed + '-SAT COMBO', sub:'That’s one way to reduce space junk.', life:1.8, c:'#ffb547'}; }
         S.phase = 'result'; S.timer = 0.8;
       }
@@ -434,7 +460,7 @@ function drawSky(){
   const g = ctx.createLinearGradient(0,0,0,GY);
   g.addColorStop(0,'#03051a'); g.addColorStop(.5,'#0d1440'); g.addColorStop(.8,'#33275a'); g.addColorStop(.94,'#a44f68'); g.addColorStop(1,'#ea8b58');
   ctx.fillStyle = g; ctx.fillRect(-20,-20,W+40,GY+20);
-  for(const s of stars){ const a = 0.35 + 0.65*Math.abs(Math.sin(S.t*s.sp*0.5 + s.tw)) * (1 - s.y/420); ctx.fillStyle = `rgba(235,240,255,${a})`; ctx.fillRect(s.x, s.y, s.r, s.r); }
+  for(const s of stars){ const a = 0.35 + 0.65*Math.abs(Math.sin(S.t*s.sp*0.5 + s.tw)) * (1 - s.fy); ctx.fillStyle = `rgba(235,240,255,${a})`; ctx.fillRect(s.x, s.fy*GY, s.r, s.r); }
   // city
   ctx.fillStyle = '#1a1533';
   for(const c of city){ ctx.fillRect(c.x, GY - c.h, c.w, c.h); }
@@ -442,20 +468,20 @@ function drawSky(){
   for(const c of city) for(const w of c.win) ctx.fillRect(c.x + w[0], GY - c.h + w[1], 2, 2);
   // light towers
   for(const lx of [70, 890]){
-    ctx.strokeStyle = '#2a2448'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(lx, GY); ctx.lineTo(lx, 300); ctx.stroke();
-    const rg = ctx.createRadialGradient(lx, 292, 4, lx, 292, 120); rg.addColorStop(0,'rgba(255,248,220,.55)'); rg.addColorStop(1,'rgba(255,248,220,0)');
-    ctx.fillStyle = rg; ctx.fillRect(lx-120, 172, 240, 240);
-    ctx.fillStyle = '#fff6da'; ctx.fillRect(lx-22, 284, 44, 14);
-    ctx.fillStyle = '#2a2448'; for(let i=1;i<4;i++) ctx.fillRect(lx-22 + i*11, 284, 1.5, 14);
+    ctx.strokeStyle = '#2a2448'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(lx, GY); ctx.lineTo(lx, GY-200); ctx.stroke();
+    const rg = ctx.createRadialGradient(lx, GY-208, 4, lx, GY-208, 120); rg.addColorStop(0,'rgba(255,248,220,.55)'); rg.addColorStop(1,'rgba(255,248,220,0)');
+    ctx.fillStyle = rg; ctx.fillRect(lx-120, GY-328, 240, 240);
+    ctx.fillStyle = '#fff6da'; ctx.fillRect(lx-22, GY-216, 44, 14);
+    ctx.fillStyle = '#2a2448'; for(let i=1;i<4;i++) ctx.fillRect(lx-22 + i*11, GY-216, 1.5, 14);
   }
 }
 
 function drawOrbits(){
-  ctx.font = '600 10px "Martian Mono", monospace'; ctx.textBaseline = 'bottom';
+  ctx.font = `600 ${(10*TS).toFixed(1)}px "Martian Mono", monospace`; ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
   SHELLS.forEach((sh,i) => {
     ctx.setLineDash([2,9]); ctx.strokeStyle = 'rgba(140,160,255,.2)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, sh.y); ctx.lineTo(W, sh.y); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(160,175,230,.5)'; ctx.fillText('LEO SHELL ' + 'ABC'[i] + ' · ' + sh.km + ' KM', 12, sh.y - 20);
+    ctx.fillStyle = 'rgba(160,175,230,.5)'; ctx.fillText('LEO SHELL ' + 'ABC'[i] + ' · ' + sh.km + ' KM', 12, sh.y - 22);
   });
 }
 
@@ -489,8 +515,8 @@ function drawGround(){
   ctx.fillStyle = '#f2efe4'; ctx.beginPath(); ctx.moveTo(PLATE_X-14, GY+10); ctx.lineTo(PLATE_X+14, GY+10); ctx.lineTo(PLATE_X+10, GY+15); ctx.lineTo(PLATE_X, GY+17); ctx.lineTo(PLATE_X-10, GY+15); ctx.closePath(); ctx.fill();
   // backstop
   ctx.strokeStyle = 'rgba(200,205,225,.18)'; ctx.lineWidth = 1;
-  for(let x=4;x<70;x+=8){ ctx.beginPath(); ctx.moveTo(x, 380); ctx.lineTo(x, GY+4); ctx.stroke(); }
-  for(let y=380;y<GY;y+=8){ ctx.beginPath(); ctx.moveTo(4, y); ctx.lineTo(66, y); ctx.stroke(); }
+  for(let x=4;x<70;x+=8){ ctx.beginPath(); ctx.moveTo(x, GY-120); ctx.lineTo(x, GY+4); ctx.stroke(); }
+  for(let y=GY-120;y<GY;y+=8){ ctx.beginPath(); ctx.moveTo(4, y); ctx.lineTo(66, y); ctx.stroke(); }
 }
 
 function drawZone(){
@@ -607,7 +633,8 @@ function drawParts(){
 }
 
 function outlined(s, x, y, font, fill, stroke = 'rgba(5,7,24,.9)', lw = 4){
-  ctx.font = font; ctx.lineJoin = 'round'; ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeText(s, x, y); ctx.fillStyle = fill; ctx.fillText(s, x, y);
+  ctx.font = font.replace(/([\d.]+)px/, (m, n) => (parseFloat(n)*TS).toFixed(1) + 'px'); if(ctx.textAlign === 'center'){ const w = Math.min(ctx.measureText(s).width, W-40); x = Math.min(Math.max(x, 20 + w/2), W - 20 - w/2); }
+  ctx.lineJoin = 'round'; ctx.strokeStyle = stroke; ctx.lineWidth = lw*TS; ctx.strokeText(s, x, y, W-40); ctx.fillStyle = fill; ctx.fillText(s, x, y, W-40);
 }
 function drawTexts(){
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -617,14 +644,15 @@ function drawTexts(){
 
 function drawHud(){
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if(S.pitchLabel){ ctx.globalAlpha = Math.min(1, S.pitchLabel.life); outlined(S.pitchLabel.s, 740, 330, '800 13px "Martian Mono", monospace', '#ffb547'); ctx.globalAlpha = 1; }
-  if(S.mode === 'play' && S.giga >= GIGA_MAX){ ctx.globalAlpha = 0.6 + 0.4*Math.sin(S.t*8); outlined('GIGABIT SWING READY', PLATE_X, 340, '800 13px "Martian Mono", monospace', '#3fe3ff'); ctx.globalAlpha = 1; }
-  if(S.mode === 'play' && S.hint > 0){ ctx.globalAlpha = Math.min(1, S.hint/2) * 0.9; outlined('Tap or press Space to swing  ·  Early = line drive  ·  Late = moonshot', W/2, H-26, '600 12px "Martian Mono", monospace', '#f2efe4'); ctx.globalAlpha = 1; }
+  if(S.pitchLabel){ ctx.globalAlpha = Math.min(1, S.pitchLabel.life); outlined(S.pitchLabel.s, 740, GY-170, '800 13px "Martian Mono", monospace', '#ffb547'); ctx.globalAlpha = 1; }
+  if(S.mode === 'play' && S.giga >= GIGA_MAX){ ctx.globalAlpha = 0.6 + 0.4*Math.sin(S.t*8); outlined('GIGABIT SWING READY', PLATE_X + 40, GY-160, '800 13px "Martian Mono", monospace', '#3fe3ff'); ctx.globalAlpha = 1; }
+  if(S.mode === 'play' && S.hint > 0){ ctx.globalAlpha = Math.min(1, S.hint/2) * 0.9; outlined(TS > 1.3 ? 'Tap to swing · Early = low · Late = high' : 'Tap or press Space to swing  ·  Early = line drive  ·  Late = moonshot', W/2, H-26 - 8*(TS-1), '600 12px "Martian Mono", monospace', '#f2efe4'); ctx.globalAlpha = 1; }
   if(S.banner){
     const b = S.banner, a = Math.min(1, b.life*2.5), sc = 1 + Math.max(0, b.life - (b.life > 1.6 ? 1.6 : b.life))*0;
     ctx.globalAlpha = a;
-    outlined(b.s, W/2, 300, `400 ${58*sc}px "Bowlby One", Impact, sans-serif`, b.c, 'rgba(5,7,24,.95)', 8);
-    if(b.sub) outlined(b.sub, W/2, 346, '600 15px "Martian Mono", monospace', '#f2efe4');
+    const by = Math.min(H*0.45, GY-220);
+    outlined(b.s, W/2, by, `400 ${58*sc}px "Bowlby One", Impact, sans-serif`, b.c, 'rgba(5,7,24,.95)', 8);
+    if(b.sub) outlined(b.sub, W/2, by + 46*TS, '600 15px "Martian Mono", monospace', '#f2efe4');
     ctx.globalAlpha = 1;
   }
 }
