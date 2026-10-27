@@ -87,6 +87,27 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 .stats b{font-size:clamp(16px,3.4cqw,28px);color:var(--amber);font-variant-numeric:tabular-nums}
 .stats span{font-size:clamp(8px,1.1cqw,10px);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 #bragText{position:absolute;left:-9999px}
+/* arcade initials + high score table */
+.initials{display:flex;flex-direction:column;align-items:center;gap:clamp(6px,1.4cqw,10px)}
+.initials .label{margin:0;color:var(--amber);font-size:clamp(10px,1.4cqw,12px);font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.slots{display:flex;gap:clamp(8px,2cqw,14px)}
+.slot{display:flex;flex-direction:column;align-items:center;gap:4px}
+.slot .ch{font-family:var(--display);font-size:clamp(30px,6.5cqw,48px);line-height:1;width:1.15em;text-align:center;color:var(--amber);border-bottom:3px solid var(--panel-edge);padding-bottom:3px;cursor:pointer}
+.slot.on .ch{border-color:var(--amber);animation:blink 1s steps(2,start) infinite}
+@keyframes blink{50%{opacity:.35}}
+.arrow{background:var(--panel);color:var(--chalk);font-size:11px;line-height:1;padding:6px 12px;border:1px solid var(--panel-edge)}
+.arrow:active{background:var(--panel-edge)}
+.ini-msg{margin:0;min-height:1.2em;font-size:clamp(10px,1.4cqw,12px);color:var(--flare)}
+.hs-scope{margin:0;font-size:clamp(9px,1.2cqw,11px);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.hs-list{list-style:none;margin:0;padding:0;width:min(380px,100%);display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}
+.hs-list li{display:grid;grid-template-columns:2.4em 3.2em minmax(1em,1fr) auto;gap:10px;align-items:baseline;font-weight:800;font-size:clamp(12px,2cqw,17px);padding:3px 10px;border-radius:3px;color:var(--chalk);text-align:left}
+.hs-list .rk{color:var(--muted)}
+.hs-list .lead{border-bottom:2px dotted var(--panel-edge);transform:translateY(-.3em)}
+.hs-list .sc{color:var(--amber);text-align:right}
+.hs-list li:first-child .in,.hs-list li:first-child .sc{color:var(--amber);text-shadow:0 0 12px rgba(255,181,71,.5)}
+.hs-list li.me{background:rgba(63,227,255,.12);box-shadow:inset 0 0 0 1px rgba(63,227,255,.55)}
+.hs-list li.me .in,.hs-list li.me .sc{color:var(--fiber);text-shadow:none}
+.hs-list li.empty{display:block;text-align:center;color:var(--muted);font-weight:400}
 .moments{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;text-align:left;font-size:clamp(10px,1.45cqw,13px);line-height:1.4;color:#c9cdea;max-width:46ch}
 .moments li{display:flex;gap:8px}
 .moments li::before{content:'';flex:none;width:6px;height:6px;margin-top:.5em;border-radius:50%;background:var(--fiber);box-shadow:0 0 6px var(--fiber)}
@@ -124,7 +145,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
   .ticker span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .ghost#muteBtn{padding:6px 10px;font-size:10px}
 }
-@media (prefers-reduced-motion: reduce){.meter.full b{animation:none}}
+@media (prefers-reduced-motion: reduce){.meter.full b,.slot.on .ch{animation:none}}
 </style>
 </head>
 <body>
@@ -153,7 +174,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
         <h2>Satellite<br><span>Slugger</span></h2>
         <p>Internet that comes from space tends to leave when it rains. Grab a bat. Every satellite you knock down is a home that gets to stream the game, finish the homework, and see grandma without the freeze.</p>
         <div class="keys"><span><kbd>Space</kbd> or tap to swing</span><span>Early = line drive</span><span>Late = moonshot</span></div>
-        <div class="btnrow"><button class="go" id="startBtn">Play ball</button></div>
+        <div class="btnrow"><button class="go" id="startBtn">Play ball</button><button class="ghost" id="titleBoardBtn">High scores</button></div>
         <p class="small" id="brandLine"></p>
       </div>
     </div>
@@ -166,15 +187,33 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
           <div><b id="fKills">0</b><span>Sats down</span></div>
           <div><b id="fCombo">0</b><span>Best combo</span></div>
         </div>
-        <p id="fLine"></p>
-        <ul class="moments" id="fMoments"></ul>
-        <div class="btnrow">
+        <div class="initials" id="iniBox" hidden>
+          <p class="label">New high score · enter your initials</p>
+          <div class="slots" id="slots" role="group" aria-label="Your initials"></div>
+          <p class="ini-msg" id="iniMsg" aria-live="polite"></p>
+          <div class="btnrow"><button class="go" id="saveBtn">Save score</button><button class="ghost" id="skipBtn">Skip</button></div>
+        </div>
+        <div id="summary">
+          <p id="fLine"></p>
+          <ul class="moments" id="fMoments"></ul>
+        </div>
+        <div class="btnrow" id="overBtns">
           <button class="go" id="againBtn">Swing again</button>
+          <button class="ghost" id="boardBtn">High scores</button>
           <button class="ghost" id="bragBtn">Copy my score</button>
         </div>
         <a class="cta" id="ctaBtn" target="_blank" rel="noopener" hidden></a>
         <p class="small" id="fBest"></p>
         <input id="bragText" readonly aria-hidden="true" tabindex="-1">
+      </div>
+    </div>
+
+    <div class="overlay" id="boardOv" hidden>
+      <div class="card">
+        <h2>High<br><span>Scores</span></h2>
+        <p class="hs-scope" id="hsScope"></p>
+        <ol class="hs-list" id="hsList"></ol>
+        <div class="btnrow"><button class="go" id="boardPlayBtn">Play ball</button><button class="ghost" id="boardBackBtn">Back</button></div>
       </div>
     </div>
   </div>
@@ -313,7 +352,7 @@ function setTicker(t, kind='sat'){
 
 function start(){
   audio(); reset(); S.mode = 'play';
-  $('titleOv').hidden = true; $('overOv').hidden = true;
+  $('titleOv').hidden = true; $('overOv').hidden = true; $('boardOv').hidden = true; ini.on = false; LB.myId = null;
   nextPitch(1.4); setTicker('Batter up. Satellites overhead: ' + S.sats.length + '.');
   cv.focus?.();
 }
@@ -525,7 +564,10 @@ function gameOver(){
     for(const [n, t] of lines){ const li = document.createElement('li'), b = document.createElement('b'); b.textContent = Math.max(1, Math.round(n)).toLocaleString(); li.append(b, ' ' + t); ul.append(li); }
   } else $('fLine').textContent = 'Not a single satellite. The sky is still full of buffering.';
   $('fBest').textContent = 'Best this browser: ' + best.toLocaleString();
-  $('overOv').hidden = false; $('againBtn').focus();
+  // brief input lock so a mashed Space/tap at the final out doesn't skip past the results
+  S.overAt = performance.now(); $('againBtn').disabled = true; setTimeout(() => { $('againBtn').disabled = false; if(!ini.on) $('againBtn').focus(); }, 900);
+  $('overOv').hidden = false; $('iniBox').hidden = true; $('summary').hidden = false; $('overBtns').hidden = false;
+  if(S.score > 0) fetchBoard().then(list => { if(S.mode === 'over' && qualifies(list, S.score)) openInitials(); });
   setTicker('Game over. Satellites remaining: ' + S.sats.length + '. Fiber still in the ground: all of it.', 'fiber');
 }
 
@@ -779,9 +821,108 @@ function syncBoard(){
 let last = performance.now();
 function frame(now){ const dt = Math.min(0.033, (now - last)/1000); last = now; update(dt); draw(); syncBoard(); requestAnimationFrame(frame); }
 
+// ---- leaderboard ----
+// Shared board lives at /api/scores (Vercel function + Upstash Redis). If that isn't reachable
+// (local file, preview, storage not connected) scores are kept on this device instead.
+const API = '/api/scores', LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const BLOCKED = new Set(['ASS','FUK','FUC','FCK','SEX','KKK','NIG','NGR','FAG','CUM','TIT','DIK','DIC','COK','CNT','JIZ','WTF','POS','SHT','XXX','GAY','HOE','NAZ','KYS','PEE','POO']);
+const LB = {remote:false, list:[], myId:null};
+let lastIni = 'AAA'; try{ lastIni = localStorage.getItem('ssIni') || 'AAA'; }catch(e){}
+const ini = {on:false, pos:0, ch:[0,0,0]};
+
+function localBoard(){ try{ const l = JSON.parse(localStorage.getItem('ssBoard') || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+async function fetchBoard(){
+  try{
+    const r = await fetch(API, {cache:'no-store'}); if(!r.ok) throw 0;
+    const j = await r.json(); if(!Array.isArray(j.scores)) throw 0;
+    LB.remote = true; LB.list = j.scores;
+  }catch(e){ LB.remote = false; LB.list = localBoard(); }
+  return LB.list;
+}
+function qualifies(list, score){ return score > 0 && (list.length < 10 || score > list[list.length-1].score); }
+
+function openInitials(){
+  ini.on = true; ini.pos = 0; ini.ch = [...lastIni].map(c => Math.max(0, LETTERS.indexOf(c)));
+  $('iniBox').hidden = false; $('summary').hidden = true; $('overBtns').hidden = true; $('iniMsg').textContent = '';
+  renderSlots(); $('saveBtn').focus();
+}
+function closeInitials(){ ini.on = false; $('iniBox').hidden = true; $('summary').hidden = false; $('overBtns').hidden = false; }
+function renderSlots(){
+  const box = $('slots'); box.textContent = '';
+  ini.ch.forEach((c,i) => {
+    const d = document.createElement('div'); d.className = 'slot' + (i === ini.pos ? ' on' : '');
+    const up = document.createElement('button'); up.className = 'arrow'; up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Next letter, slot ' + (i+1));
+    const ch = document.createElement('span'); ch.className = 'ch'; ch.textContent = LETTERS[c];
+    const dn = document.createElement('button'); dn.className = 'arrow'; dn.type = 'button'; dn.textContent = '▼'; dn.setAttribute('aria-label', 'Previous letter, slot ' + (i+1));
+    up.addEventListener('click', () => { ini.pos = i; bump(1); });
+    dn.addEventListener('click', () => { ini.pos = i; bump(-1); });
+    ch.addEventListener('click', () => { ini.pos = i; renderSlots(); });
+    d.append(up, ch, dn); box.append(d);
+  });
+}
+function bump(d){ ini.ch[ini.pos] = (ini.ch[ini.pos] + d + 26) % 26; renderSlots(); sfx.whoosh(); }
+function iniKey(e){
+  const k = e.key;
+  if(/^[a-z]$/i.test(k)){ ini.ch[ini.pos] = LETTERS.indexOf(k.toUpperCase()); ini.pos = Math.min(2, ini.pos + 1); renderSlots(); }
+  else if(k === 'ArrowUp') bump(1);
+  else if(k === 'ArrowDown') bump(-1);
+  else if(k === 'ArrowLeft' || k === 'Backspace'){ ini.pos = Math.max(0, ini.pos - 1); renderSlots(); }
+  else if(k === 'ArrowRight'){ ini.pos = Math.min(2, ini.pos + 1); renderSlots(); }
+  else if(k === 'Enter'){ if(document.activeElement && document.activeElement.id === 'skipBtn') return; saveScore(); }
+  else return;
+  e.preventDefault();
+}
+
+async function saveScore(){
+  const initials = ini.ch.map(c => LETTERS[c]).join('');
+  if(BLOCKED.has(initials)){ $('iniMsg').textContent = 'Let’s keep it family-friendly. Pick different initials.'; return; }
+  $('saveBtn').disabled = true; $('iniMsg').textContent = 'Saving…';
+  const entry = {initials, score:S.score, kills:S.kills};
+  try{ localStorage.setItem('ssIni', initials); lastIni = initials; }catch(e){}
+  if(LB.remote){
+    try{
+      const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry)});
+      const j = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(j.error || 'The leaderboard didn’t answer. Try again.');
+      LB.list = j.scores; LB.myId = j.id;
+    }catch(err){ $('iniMsg').textContent = err.message || 'The leaderboard didn’t answer. Try again.'; $('saveBtn').disabled = false; return; }
+  } else {
+    const id = Date.now().toString(36), l = localBoard(); l.push({...entry, id});
+    l.sort((a,b) => b.score - a.score); LB.list = l.slice(0,10); LB.myId = id;
+    try{ localStorage.setItem('ssBoard', JSON.stringify(LB.list)); }catch(e){}
+  }
+  $('saveBtn').disabled = false; closeInitials(); sfx.crack(); showBoard(false);
+}
+
+function renderBoard(){
+  const ol = $('hsList'); ol.textContent = '';
+  $('hsScope').textContent = LB.remote ? 'Top 10 · all players' : 'Top 10 · this device';
+  if(!LB.list.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'No scores yet. The sky is wide open.'; ol.append(li); return; }
+  LB.list.slice(0,10).forEach((e,i) => {
+    const li = document.createElement('li'); if(e.id && e.id === LB.myId) li.className = 'me';
+    const cells = [['rk', (i+1) + '.'], ['in', e.initials], ['lead', ''], ['sc', Number(e.score).toLocaleString()]];
+    for(const [c,t] of cells){ const sp = document.createElement('span'); sp.className = c; sp.textContent = t; li.append(sp); }
+    ol.append(li);
+  });
+}
+async function showBoard(refetch = true){
+  const from = S.mode;
+  $('titleOv').hidden = true; $('overOv').hidden = true; $('boardOv').hidden = false;
+  if(refetch){ $('hsList').innerHTML = '<li class="empty">Loading scores…</li>'; $('hsScope').textContent = ''; await fetchBoard(); }
+  renderBoard(); $('boardOv').dataset.from = from; $('boardPlayBtn').focus();
+}
+$('titleBoardBtn').addEventListener('click', () => showBoard());
+$('boardBtn').addEventListener('click', () => showBoard());
+$('boardPlayBtn').addEventListener('click', start);
+$('boardBackBtn').addEventListener('click', () => { $('boardOv').hidden = true; (S.mode === 'over' ? $('overOv') : $('titleOv')).hidden = false; });
+$('saveBtn').addEventListener('click', saveScore);
+$('skipBtn').addEventListener('click', () => { closeInitials(); $('againBtn').focus(); });
+
 // ---- input ----
 $('stage').addEventListener('pointerdown', e => { if(e.target.closest('.overlay')) return; e.preventDefault(); swing(); });
 window.addEventListener('keydown', e => {
+  if(ini.on){ iniKey(e); return; }
+  if(S.mode === 'over' && performance.now() - (S.overAt||0) < 900){ e.preventDefault(); return; }
   if(e.code === 'Space' || e.code === 'Enter'){
     if(document.activeElement && document.activeElement.tagName === 'BUTTON' && S.mode !== 'play') return;
     e.preventDefault(); if(S.mode === 'play') swing(); else start();
@@ -791,7 +932,8 @@ $('startBtn').addEventListener('click', start);
 $('swingBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   const btn = $('swingBtn'); btn.classList.add('hit'); setTimeout(() => btn.classList.remove('hit'), 120);
-  if(S.mode === 'play') swing(); else start();
+  if(S.mode === 'play') swing();
+  else if(!ini.on && !(S.mode === 'over' && performance.now() - (S.overAt||0) < 900)) start();
 });
 $('againBtn').addEventListener('click', start);
 $('muteBtn').addEventListener('click', () => { muted = !muted; $('muteBtn').textContent = 'Sound: ' + (muted ? 'off' : 'on'); $('muteBtn').setAttribute('aria-pressed', muted); });
