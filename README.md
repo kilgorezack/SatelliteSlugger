@@ -11,11 +11,13 @@ A browser batting game for broadband providers. Time your swing, launch the ball
 
 ## Rebrand
 
-Edit the two constants at the top of the script in `index.html`:
+Edit the constants at the top of the script in `index.html`:
 
 ```js
 const BRAND = 'Your Local Fiber';
 const JERSEY = 'FIBER';
+const CTA_TEXT = 'Check fiber at your address';
+const CTA_URL = '';   // set this to show a call-to-action button on the game-over screen
 ```
 
 ## Deploy

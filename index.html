@@ -87,10 +87,18 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 .stats b{font-size:clamp(16px,3.4cqw,28px);color:var(--amber);font-variant-numeric:tabular-nums}
 .stats span{font-size:clamp(8px,1.1cqw,10px);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 #bragText{position:absolute;left:-9999px}
+.moments{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;text-align:left;font-size:clamp(10px,1.45cqw,13px);line-height:1.4;color:#c9cdea;max-width:46ch}
+.moments li{display:flex;gap:8px}
+.moments li::before{content:'';flex:none;width:6px;height:6px;margin-top:.5em;border-radius:50%;background:var(--fiber);box-shadow:0 0 6px var(--fiber)}
+.moments b{color:var(--fiber);font-variant-numeric:tabular-nums}
+.cta{display:inline-block;text-decoration:none;font-weight:800;font-size:clamp(11px,1.5cqw,13px);letter-spacing:.06em;color:#002a33;background:var(--fiber);padding:9px 18px;border-radius:5px;box-shadow:0 4px 0 #138aa3}
+.cta:focus-visible{outline:3px solid var(--chalk);outline-offset:3px}
 
 .footer{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
 .ticker{flex:1 1 280px;min-width:0;font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline}
-.ticker b{color:var(--flare);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.ticker b{color:var(--flare);transition:color .2s;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.ticker b.fiber{color:var(--fiber)}
+.ticker span.fiber{color:#bff6ff}
 .ticker span{color:var(--chalk);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .swingBtn{
   align-self:center;width:min(240px,100%);font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.08em;text-transform:uppercase;
@@ -129,7 +137,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
   <section class="board" aria-label="Scoreboard">
     <div class="cell"><label>Score</label><output id="hScore">0</output></div>
     <div class="cell"><label><span class="lg">Satellites</span><span class="sm">Sats</span> down</label><output id="hKills">0</output></div>
-    <div class="cell"><label><span class="lg">Customers </span>freed</label><output id="hFreed">0</output></div>
+    <div class="cell"><label><span class="lg">Homes </span>freed</label><output id="hFreed">0</output></div>
     <div class="cell count"><label>Count</label>
       <div class="dots" style="margin-top:4px"><span>S<i id="s1"></i><i id="s2"></i></span><span>O<i class="out" id="o1"></i><i class="out" id="o2"></i><i class="out" id="o3"></i></span></div>
     </div>
@@ -143,7 +151,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
     <div class="overlay" id="titleOv">
       <div class="card">
         <h2>Satellite<br><span>Slugger</span></h2>
-        <p>Satellite internet has a latency problem. You have a bat. Time your swing, launch the ball into low Earth orbit, and clear the sky one dish-shaped disappointment at a time.</p>
+        <p>Internet that comes from space tends to leave when it rains. Grab a bat. Every satellite you knock down is a home that gets to stream the game, finish the homework, and see grandma without the freeze.</p>
         <div class="keys"><span><kbd>Space</kbd> or tap to swing</span><span>Early = line drive</span><span>Late = moonshot</span></div>
         <div class="btnrow"><button class="go" id="startBtn">Play ball</button></div>
         <p class="small" id="brandLine"></p>
@@ -158,11 +166,13 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
           <div><b id="fKills">0</b><span>Sats down</span></div>
           <div><b id="fCombo">0</b><span>Best combo</span></div>
         </div>
-        <p id="fLine">Their constellation will be back next week. So will you.</p>
+        <p id="fLine"></p>
+        <ul class="moments" id="fMoments"></ul>
         <div class="btnrow">
           <button class="go" id="againBtn">Swing again</button>
           <button class="ghost" id="bragBtn">Copy my score</button>
         </div>
+        <a class="cta" id="ctaBtn" target="_blank" rel="noopener" hidden></a>
         <p class="small" id="fBest"></p>
         <input id="bragText" readonly aria-hidden="true" tabindex="-1">
       </div>
@@ -173,7 +183,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
   <button class="swingBtn" id="swingBtn" type="button">Swing</button>
 
   <footer class="footer">
-    <div class="ticker"><b>Constellation status</b><span id="ticker">All satellites nominal. For now.</span></div>
+    <div class="ticker"><b id="tickerLabel">Satellite status</b><span id="ticker">All satellites nominal. For now.</span></div>
     <button class="ghost" id="muteBtn" aria-pressed="false">Sound: on</button>
   </footer>
 </div>
@@ -183,12 +193,15 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 // ---- Rebrand here ---------------------------------------------------------
 const BRAND = 'Your Local Fiber';          // shown on title screen + batter jersey
 const JERSEY = 'FIBER';                     // short word on the jersey
+const CTA_TEXT = 'Check fiber at your address'; // button on the game-over screen
+const CTA_URL = '';                         // e.g. 'https://yourfiber.com/availability' (button hidden when empty)
 // --------------------------------------------------------------------------
 
 const W = 960; let H = 600, GY = 500, TS = 1; // H/GY grow on tall (portrait) screens; TS scales in-canvas text for small screens
 let ZONE_Y = 452;
 const PLATE_X = 238, CONTACT = 48, FAIR = 36, GIGA_MAX = 6;
-const SHELLS = [{y:82, v:52, km:570}, {y:158, v:-74, km:550}, {y:234, v:96, km:540}];
+const SHELL_DEFS = [{v:58, km:570}, {v:-84, km:560}, {v:106, km:550}, {v:-70, km:540}, {v:94, km:530}, {v:-116, km:360}];
+let SHELLS = SHELL_DEFS.slice(0,3).map((d,i) => ({...d, y:82 + 76*i}));
 
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
@@ -200,7 +213,8 @@ function resize(){
   H = Math.round(Math.min(1540, Math.max(600, W * r.height / r.width)));
   GY = H - 100; ZONE_Y = GY - 48;
   const top = 82, bot = GY - 266;
-  SHELLS.forEach((sh,i) => sh.y = top + (bot-top)*i/(SHELLS.length-1));
+  const n = Math.max(3, Math.min(SHELL_DEFS.length, Math.floor((bot-top)/125) + 1));
+  SHELLS = SHELL_DEFS.slice(0,n).map((d,i) => ({...d, y: top + (bot-top)*i/(n-1)}));
   TS = Math.max(1, Math.min(2.4, 0.8/scale));
 }
 new ResizeObserver(resize).observe(cv); resize();
@@ -213,18 +227,42 @@ const easeOut = t => 1 - Math.pow(1-t, 3);
 
 // ---- copy ----
 const Q = {
-  sat: ['Rebooting… est. 4–6 weeks','Obstruction detected: baseball','Latency: ∞ ms','Rain fade: severe','Speeds may vary. Down.','Connection lost (literally)','Support ticket #∞ filed','Deprioritized. Permanently.','Weather in space: baseballs','Dish alignment: optional','Now 0% packet delivery','Coverage map unchanged','Firmware update: gravity','Please check your cables'],
+  sat: ['Have you tried moving the dish?','Snow on dish. Please climb roof.','Trees detected. Remove forest.','Your call is important to us','Service resumes when clouds do','Signal lost: one (1) bird','Rebooting… est. 4–6 weeks','Obstruction detected: baseball','Latency: ∞ ms','Rain fade: severe','Speeds may vary. Down.','Connection lost (literally)','Support ticket #∞ filed','Deprioritized. Permanently.','Weather in space: baseballs','Dish alignment: optional','Now 0% packet delivery','Coverage map unchanged','Firmware update: gravity','Please check your cables'],
   launch: ['They launched 6 more.','Another rocket. Another batch.','Fresh satellites. Same latency.','Constellation refilled. Swing harder.','More dishes in the sky. Bless their hearts.'],
   miss: ['Swing and a miss. Buffering…','Whiff. Must be the jitter.','Strike! Signal dropped.','Missed. Blame the cloud cover.'],
   looking: ['Strike looking. Were you on Wi-Fi?','Called strike. Your packet never arrived.','Strike. You froze like a video call.'],
   lost: ['Lost in orbit. Like their support queue.','Clean miss. Space is big. So is their coverage promise.','Into the void. No satellites were harmed.'],
   foul: ['Foul. Like rain fade.','Foul ball. Signal bounced.','Foul. Try a hardwired swing.'],
+  fiber: [
+    'Movie night at the {n}s’: zero spinning wheels.',
+    'Grandma can see the grandkids now. Not just their pixels.',
+    'Ranked match won at the {n} house. Nobody blamed lag.',
+    'The {n}s uploaded the whole wedding video before the cake was cut.',
+    'Homework submitted at 11:58 PM. It actually went through.',
+    'Telehealth visit, no freezing mid-sentence.',
+    'Work call stayed up. The boss saw the whole slide.',
+    'Five phones, two consoles, one smart fridge. All happy.',
+    'Called support. A local human answered. Same zip code.',
+    'Grandpa watched every pitch of the Little League stream.',
+    'Mr. {n} stopped climbing the roof to brush snow off a dish.',
+    'Fantasy draft at 8:00 sharp. Nobody got auto-drafted.',
+    'The {n} kid went live on Twitch. Chat said it looked crisp.',
+    'Remote job interview: no "you’re frozen." Offer letter Friday.',
+    'No dish to aim. No tree to trim. Just internet.',
+  ],
+  storm: [
+    'Thunderstorm overhead. Fiber’s underground. Nobody’s stream noticed.',
+    'Rain on the roof, 4K on the TV. That’s the whole story.',
+    'Lightning flashed. The {n}s’ video call didn’t.',
+  ],
+  names: ['Garcia','Nguyen','Patel','Johnson','Okafor','Kowalski','Begay','Larsen','Romero','Chen','Murphy','Haddad','Schmidt','Yazzie','Brooks'],
   out: ['Time to reset the router.','Three strikes. Like three hours on hold.','Unplug it. Wait 30 seconds. Try again.'],
   pitch: [
     {n:'Latency Fastball', m:1.16, ay:0,   w:4},
     {n:'Buffering Changeup', m:0.66, ay:0, w:3},
-    {n:'Rain-Fade Curve', m:0.94, ay:760,  w:2},
-    {n:'Packet-Loss Knuckler', m:0.82, ay:0, w:2, knuckle:true},
+    {n:'Rain-Fade Curve', m:0.94, ay:760,  w:2, fade:true},
+    {n:'Packet-Loss Knuckler', m:0.82, ay:0, w:2, knuckle:true, blink:true},
+    {n:'Deprioritized Slider', m:1.25, ay:0, w:2, depri:true},
   ],
 };
 
@@ -244,11 +282,14 @@ const sfx = {
   laser(){ tone(1600,0.7,'sawtooth',0.16,80); tone(800,0.7,'square',0.08,60); noise(0.6,0.3,2400); },
   thunk(){ noise(0.07,0.35,380); },
   launch(){ noise(1.4,0.18,300); tone(60,1.4,'sawtooth',0.05,180); },
+  thunder(){ noise(1.6,0.4,180); },
   out(){ tone(330,0.18,'square',0.12); setTimeout(()=>tone(220,0.35,'square',0.12),170); },
 };
 
 // ---- scene props ----
 const stars = Array.from({length:170}, () => ({x:rand(0,W), fy:rand(0,0.8), r:rand(.4,1.6), tw:rand(0,6.28), sp:rand(1,3)}));
+const rain = Array.from({length:150}, () => ({x:rand(0,W), y:rand(0,1600), sp:rand(.8,1.25)}));
+const clouds = Array.from({length:9}, (_,i) => ({x:i*125 + rand(-30,30), oy:rand(-14,14), rx:rand(80,130), ry:rand(22,34)}));
 const city = []; { let x = 0; while(x < W){ const w = rand(18,46), h = rand(14,58); const win = []; for(let i=0;i<Math.floor(w*h/180);i++) win.push([rand(3,w-4), rand(4,h-3)]); city.push({x,w,h,win}); x += w + rand(0,4); } }
 
 // ---- state ----
@@ -258,12 +299,17 @@ function reset(){
   Object.assign(S, {mode:'title', score:0, kills:0, freed:0, strikes:0, outs:0, giga:0, pitches:0, bestCombo:0,
     phase:'idle', timer:0, windupTotal:1, ball:null, swing:null, swungThis:false, pendingContact:null,
     pitchLabel:null, sats:[], parts:[], texts:[], beams:[], banner:null, shake:0, freeze:0, flash:0,
-    launchCd:0, release:0, hint:6});
+    launchCd:0, release:0, hint:6, storm:0, stormA:0, bolt:null, lflash:0});
   SHELLS.forEach((sh,i) => { for(let k=0;k<4;k++) spawnSat(i, (k+0.5)*W/4 + rand(-60,60)); });
 }
 function spawnSat(shell, x){ const sh = SHELLS[shell]; S.sats.push({x, shell, yo:rand(-8,8), y:sh.y, vx:sh.v*rand(.9,1.1), bob:rand(0,6.28), alive:true}); }
 
-function setTicker(t){ $('ticker').textContent = t; }
+function setTicker(t, kind='sat'){
+  t = t.replace('{n}', pick(Q.names));
+  $('ticker').textContent = t; $('ticker').className = kind;
+  $('tickerLabel').textContent = kind === 'fiber' ? 'Fiber moment' : 'Satellite status';
+  $('tickerLabel').className = kind;
+}
 
 function start(){
   audio(); reset(); S.mode = 'play';
@@ -271,7 +317,14 @@ function start(){
   nextPitch(1.4); setTicker('Batter up. Satellites overhead: ' + S.sats.length + '.');
   cv.focus?.();
 }
-function nextPitch(delay){ S.phase = 'windup'; S.windupTotal = delay ?? rand(0.9,1.3); S.timer = S.windupTotal; S.ball = null; S.swungThis = false; S.pendingContact = null; }
+function nextPitch(delay){
+  if(S.mode === 'play' && delay === undefined){
+    if(S.storm > 0){ S.storm--; if(!S.storm) setTicker('Storm passed. Satellite homes: rebooting. Fiber homes: never noticed.', 'fiber'); }
+    else if(S.pitches >= 5 && Math.random() < 0.17){
+      S.storm = 4; S.banner = {s:'STORM CELL', sub:'Satellites are flickering. Hits score 2×.', life:2.2, c:'#bfc8ff'};
+      setTicker(pick(Q.storm), 'fiber'); sfx.thunder();
+    }
+  } S.phase = 'windup'; S.windupTotal = delay ?? rand(0.7,1.0); S.timer = S.windupTotal; S.ball = null; S.swungThis = false; S.pendingContact = null; }
 
 function throwPitch(){
   const lvl = Math.min(S.pitches, 40); S.pitches++;
@@ -281,7 +334,7 @@ function throwPitch(){
   const v = (560 + lvl*10) * type.m * rand(.94,1.06);
   const x0 = 728, y0 = ZONE_Y - 36, ty = ZONE_Y + rand(-5,5), T = (x0-PLATE_X)/v;
   const vy = (ty - y0 - 0.5*type.ay*T*T)/T;
-  S.ball = {x:x0, y:y0, vx:-v, vy, ay:type.ay, knuckle:!!type.knuckle, kt:0, state:'pitch', trail:[], killed:0, missed:false};
+  S.ball = {x:x0, y:y0, x0, vx:-v, vy, ay:type.ay, knuckle:!!type.knuckle, blink:!!type.blink, fade:!!type.fade, depri:!!type.depri, vis:1, kt:0, state:'pitch', trail:[], killed:0, missed:false};
   S.pitchLabel = {s: type.n.toUpperCase() + ' · ' + Math.round(v/7.2) + ' MPH', life:1.6};
   S.phase = 'pitch'; S.release = 0.35; sfx.whoosh();
 }
@@ -317,7 +370,7 @@ function contact(diff){
   if(perfect){ S.score += 50; floatText(PLATE_X+20, ZONE_Y-70, 'PERFECT +50', '#ffb547', 22); }
   else floatText(PLATE_X+20, ZONE_Y-70, n > 0.35 ? 'LINE DRIVE' : n < -0.35 ? 'MOONSHOT' : 'CRUSHED', '#f2efe4', 18);
   if(S.giga >= GIGA_MAX){ laser(ang); return; }
-  const sp = 1150 + q*560;
+  const sp = (1150 + q*560) * Math.min(1.45, Math.sqrt(H/600));
   b.state = 'hit'; b.vx = Math.cos(ang)*sp; b.vy = -Math.sin(ang)*sp; b.ay = 190; b.killed = 0; b.trail = [];
   sfx.crack(); S.shake = perfect ? 7 : 4; S.phase = 'flight';
 }
@@ -335,16 +388,16 @@ function laser(ang){
 
 function killSat(s, combo, delay=0){
   s.alive = false; S.kills++; if(S.giga < GIGA_MAX) S.giga++;
-  const pts = 100*combo; S.score += pts;
+  const mult = S.storm > 0 ? 2 : 1, pts = 100*combo*mult; S.score += pts;
   const freed = Math.round(rand(900,2600)/10)*10; S.freed += freed;
   const fx = () => {
     explode(s.x, s.y);
-    floatText(s.x, s.y - 26, '+' + pts + (combo > 1 ? ' ×' + combo : ''), '#ffb547', 18);
+    floatText(s.x, s.y - 26, '+' + pts + (combo > 1 ? ' ×' + combo : '') + (mult > 1 ? ' STORM' : ''), '#ffb547', 18);
     floatText(s.x, s.y - 6, pick(Q.sat), '#f2efe4', 12.5, 2.2);
     sfx.boom(); S.shake = Math.max(S.shake, 8);
   };
   delay ? setTimeout(fx, delay*1000) : fx();
-  setTicker(freed.toLocaleString() + ' customers just discovered their local fiber provider.');
+  setTicker(S.storm > 0 && Math.random() < 0.5 ? pick(Q.storm) : pick(Q.fiber), 'fiber');
 }
 
 function strike(lines){
@@ -360,7 +413,8 @@ function strike(lines){
 }
 
 function launchBatch(){
-  const shell = Math.floor(Math.random()*3), sh = SHELLS[shell], dir = Math.sign(sh.v);
+  const counts = SHELLS.map((_,i) => S.sats.filter(s => s.shell % SHELLS.length === i).length);
+  const shell = counts.indexOf(Math.min(...counts)), sh = SHELLS[shell], dir = Math.sign(sh.v);
   for(let i=0;i<6;i++){ const x = dir > 0 ? -70 - i*64 : W + 70 + i*64; S.sats.push({x, shell, yo:rand(-6,6), y:sh.y, vx:sh.v*1.15, bob:rand(0,6.28), alive:true}); }
   S.banner = {s:'NEW LAUNCH', sub:pick(Q.launch), life:2.2, c:'#f2efe4'};
   sfx.launch(); setTicker('Six more satellites inbound on the ' + sh.km + ' km shell.');
@@ -380,12 +434,12 @@ function update(dt){
   S.t = (S.t||0) + dt;
   if(S.freeze > 0){ S.freeze -= dt; return; }
 
-  for(const s of S.sats){ s.y = SHELLS[s.shell].y + s.yo; s.x += s.vx*dt; if(s.vx > 0 && s.x > W+70) s.x = -70; if(s.vx < 0 && s.x < -70) s.x = W+70; }
+  for(const s of S.sats){ s.y = SHELLS[s.shell % SHELLS.length].y + s.yo; s.x += s.vx*dt; if(s.vx > 0 && s.x > W+70) s.x = -70; if(s.vx < 0 && s.x < -70) s.x = W+70; }
   S.sats = S.sats.filter(s => s.alive);
 
   if(S.mode === 'play'){
     S.launchCd -= dt;
-    if(S.sats.length < 7 && S.launchCd <= 0){ launchBatch(); S.launchCd = 7; }
+    if(S.sats.length < SHELLS.length*2.6 && S.launchCd <= 0){ launchBatch(); S.launchCd = 4.5; }
   }
 
   if(S.swing) S.swing.t += dt;
@@ -399,8 +453,15 @@ function update(dt){
     if(b.state === 'pitch'){
       b.vy += b.ay*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.kt += dt;
       if(b.knuckle) b.y += Math.sin(b.kt*22)*1.4;
+      const pr = (b.x0 - b.x) / (b.x0 - PLATE_X);
+      if(b.depri && !b.slowed && pr > 0.42){ // data cap hit mid-pitch
+        b.slowed = true; b.vx *= 0.5; const T = (b.x - PLATE_X) / -b.vx; b.vy = (ZONE_Y + rand(-4,4) - b.y) / T;
+        floatText(b.x, b.y - 34, 'DEPRIORITIZED', '#ff5a3c', 13, 0.9);
+      }
+      if(b.fade) b.vis = 1 - 0.88*Math.sin(Math.PI*Math.min(1, Math.max(0, (pr-0.28)/0.5)));
+      if(b.blink) b.vis = (pr < 0.85 && Math.floor(b.kt*13) % 3 === 1) ? 0.04 : 1;
       if(b.x < PLATE_X - 70 && S.phase === 'pitch'){ S.phase = 'caught'; strike(b.missed ? Q.miss : Q.looking); }
-      if(b.x < 40){ b.state = 'gone'; sfx.thunk(); if(S.phase === 'caught'){ S.phase = S.phase === 'over' ? 'over' : 'result'; S.timer = 0.9; } }
+      if(b.x < 40){ b.state = 'gone'; sfx.thunk(); if(S.phase === 'caught'){ S.phase = 'result'; S.timer = 0.55; } }
     } else if(b.state === 'hit'){
       const steps = 4;
       for(let k=0;k<steps;k++){
@@ -412,7 +473,7 @@ function update(dt){
         b.state = 'gone';
         if(b.killed === 0){ if(S.strikes < 2) S.strikes++; setTicker(pick(Q.lost)); floatText(W*0.6, GY - 200, 'LOST IN ORBIT', '#8c94c4', 18); }
         else { if(b.killed > S.bestCombo) S.bestCombo = b.killed; if(b.killed > 1) S.banner = {s: b.killed + '-SAT COMBO', sub:'That’s one way to reduce space junk.', life:1.8, c:'#ffb547'}; }
-        S.phase = 'result'; S.timer = 0.8;
+        S.phase = 'result'; S.timer = 0.5;
       }
     } else if(b.state === 'foul'){
       b.vy += b.ay*dt; b.x += b.vx*dt; b.y += b.vy*dt;
@@ -429,7 +490,18 @@ function update(dt){
   for(const bm of S.beams) bm.life -= dt; S.beams = S.beams.filter(bm => bm.life > 0);
   if(S.banner){ S.banner.life -= dt; if(S.banner.life <= 0) S.banner = null; }
   if(S.pitchLabel){ S.pitchLabel.life -= dt; if(S.pitchLabel.life <= 0) S.pitchLabel = null; }
-  S.shake *= 0.86; S.flash = Math.max(0, S.flash - dt*2.2);
+  S.shake *= 0.86; S.flash = Math.max(0, S.flash - dt*2.2); S.lflash = Math.max(0, S.lflash - dt*3);
+  S.stormA += ((S.storm > 0 ? 1 : 0) - S.stormA) * Math.min(1, dt*1.5);
+  if(S.stormA > 0.02){
+    const cy = GY - 240;
+    for(const d of rain){ d.y += 950*d.sp*dt; d.x -= 140*dt; if(d.y > H){ d.y = cy + rand(-10,20); d.x = rand(0, W+120); } if(d.y < cy) d.y = cy + rand(0, H-cy); }
+    for(const c of clouds){ c.x -= 18*dt; if(c.x < -150) c.x += 9*125; }
+    if(S.stormA > 0.6 && !S.bolt && Math.random() < dt*0.4){
+      const pts = [[rand(320, W-60), cy + 10]]; while(pts[pts.length-1][1] < GY - 20) pts.push([pts[pts.length-1][0] + rand(-30,30), pts[pts.length-1][1] + rand(26,48)]);
+      S.bolt = {pts, life:0.22}; S.lflash = 0.5; if(!reduceMotion) S.shake = Math.max(S.shake, 3); setTimeout(sfx.thunder, 250);
+    }
+  }
+  if(S.bolt){ S.bolt.life -= dt; if(S.bolt.life <= 0) S.bolt = null; }
   if(S.mode === 'play' && S.hint > 0 && S.pitches > 3) S.hint -= dt;
 }
 
@@ -439,10 +511,22 @@ function gameOver(){
   $('fScore').textContent = S.score.toLocaleString();
   $('fKills').textContent = S.kills;
   $('fCombo').textContent = S.bestCombo;
-  $('fLine').textContent = S.kills ? S.freed.toLocaleString() + ' customers freed from their dish. Their constellation will be back next week. So will you.' : 'Not a single satellite. Maybe check your connection?';
+  const ul = $('fMoments'); ul.textContent = '';
+  if(S.kills){
+    $('fLine').textContent = S.freed.toLocaleString() + ' homes switched to fiber tonight. Here’s what they got back:';
+    const f = S.freed, lines = [
+      [f*0.41, 'movie nights with zero buffering'],
+      [f*0.23, 'video calls where grandma could actually see the grandkids'],
+      [f*0.13, 'ranked matches won without blaming lag'],
+      [f*0.09, 'roofs nobody has to climb to clear a dish'],
+      [f*0.17, 'homework uploads that went through on the first try'],
+      [f*0.06, 'storms nobody’s internet noticed'],
+    ].sort(() => Math.random() - 0.5).slice(0,3);
+    for(const [n, t] of lines){ const li = document.createElement('li'), b = document.createElement('b'); b.textContent = Math.max(1, Math.round(n)).toLocaleString(); li.append(b, ' ' + t); ul.append(li); }
+  } else $('fLine').textContent = 'Not a single satellite. The sky is still full of buffering.';
   $('fBest').textContent = 'Best this browser: ' + best.toLocaleString();
   $('overOv').hidden = false; $('againBtn').focus();
-  setTicker('Game over. Satellites remaining: ' + S.sats.length + '. Ground fiber remaining: all of it.');
+  setTicker('Game over. Satellites remaining: ' + S.sats.length + '. Fiber still in the ground: all of it.', 'fiber');
 }
 
 // ---- draw ----
@@ -450,10 +534,11 @@ function draw(){
   ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
   ctx.save();
   if(S.shake > 0.3 && !reduceMotion) ctx.translate(rand(-S.shake,S.shake), rand(-S.shake,S.shake));
-  drawSky(); drawOrbits(); drawSats(); drawGround(); drawZone(); drawPitcher(); drawBatter(); drawBall(); drawBeams(); drawParts(); drawTexts();
+  drawSky(); drawOrbits(); drawSats(); drawStormSky(); drawGround(); drawZone(); drawPitcher(); drawBatter(); drawBall(); ctx.globalAlpha = 1; drawRain(); drawBeams(); drawParts(); drawTexts();
   ctx.restore();
   drawHud();
   if(S.flash > 0){ ctx.fillStyle = `rgba(160,245,255,${S.flash*0.55})`; ctx.fillRect(0,0,W,H); }
+  if(S.lflash > 0 && !reduceMotion){ ctx.fillStyle = `rgba(235,238,255,${S.lflash*0.5})`; ctx.fillRect(0,0,W,H); }
 }
 
 function drawSky(){
@@ -481,7 +566,7 @@ function drawOrbits(){
   SHELLS.forEach((sh,i) => {
     ctx.setLineDash([2,9]); ctx.strokeStyle = 'rgba(140,160,255,.2)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, sh.y); ctx.lineTo(W, sh.y); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(160,175,230,.5)'; ctx.fillText('LEO SHELL ' + 'ABC'[i] + ' · ' + sh.km + ' KM', 12, sh.y - 22);
+    ctx.fillStyle = 'rgba(160,175,230,.5)'; ctx.fillText('LEO SHELL ' + 'ABCDEF'[i] + ' · ' + sh.km + ' KM', 12, sh.y - 22);
   });
 }
 
@@ -499,10 +584,28 @@ function drawSats(){
     ctx.fillStyle = '#7d8296'; ctx.fillRect(-8,2,16,3);
     ctx.fillStyle = '#e2e5ee'; ctx.beginPath(); ctx.ellipse(0,-10,6,2.5,0,0,Math.PI*2); ctx.fill();
     if(Math.sin(S.t*5 + s.bob*3) > .3){ ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(0,-13,1.8,0,Math.PI*2); ctx.fill(); }
+    if(S.stormA > 0.05 && Math.sin(S.t*7 + s.bob*5) > -0.4){ // rain fade: no signal
+      ctx.globalAlpha = S.stormA; ctx.strokeStyle = '#ff5a3c'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(0,-26,6.5,0,Math.PI*2); ctx.moveTo(-4.6,-21.4); ctx.lineTo(4.6,-30.6); ctx.stroke(); ctx.globalAlpha = 1;
+    }
     ctx.restore();
   }
 }
 
+function drawStormSky(){
+  const a = S.stormA; if(a < 0.02) return;
+  const cy = GY - 240;
+  ctx.fillStyle = `rgba(8,10,24,${0.42*a})`; ctx.fillRect(-20,-20,W+40,GY+20);
+  for(const c of clouds){ ctx.fillStyle = `rgba(46,50,78,${0.92*a})`; ctx.beginPath(); ctx.ellipse(c.x, cy + c.oy, c.rx, c.ry, 0, 0, Math.PI*2); ctx.fill(); }
+  for(const c of clouds){ ctx.fillStyle = `rgba(70,76,110,${0.55*a})`; ctx.beginPath(); ctx.ellipse(c.x - 20, cy + c.oy - 10, c.rx*0.6, c.ry*0.55, 0, 0, Math.PI*2); ctx.fill(); }
+  if(S.bolt){ ctx.strokeStyle = `rgba(230,240,255,${S.bolt.life/0.22})`; ctx.lineWidth = 3; ctx.beginPath(); S.bolt.pts.forEach(([x,y],i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); ctx.stroke(); }
+}
+function drawRain(){
+  const a = S.stormA; if(a < 0.02) return;
+  ctx.strokeStyle = `rgba(170,190,255,${0.38*a})`; ctx.lineWidth = 1.4; ctx.beginPath();
+  for(const d of rain){ ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + 5, d.y - 18); }
+  ctx.stroke();
+}
 function drawGround(){
   const g = ctx.createLinearGradient(0,GY,0,H); g.addColorStop(0,'#2f6d3b'); g.addColorStop(1,'#163a20');
   ctx.fillStyle = g; ctx.fillRect(-20,GY,W+40,H-GY+20);
@@ -604,6 +707,7 @@ function drawPitcher(){
 
 function drawBall(){
   const b = S.ball; if(!b || b.state === 'gone') return;
+  if(b.state === 'pitch') ctx.globalAlpha = b.vis;
   if(b.state === 'hit'){
     for(let i=0;i<b.trail.length;i++){ const [x,y] = b.trail[i], a = i/b.trail.length; ctx.fillStyle = `rgba(255,220,150,${a*0.5})`; ctx.beginPath(); ctx.arc(x,y,6*a+1,0,Math.PI*2); ctx.fill(); }
     const rg = ctx.createRadialGradient(b.x,b.y,2,b.x,b.y,20); rg.addColorStop(0,'rgba(255,230,170,.7)'); rg.addColorStop(1,'rgba(255,230,170,0)'); ctx.fillStyle = rg; ctx.fillRect(b.x-20,b.y-20,40,40);
@@ -615,7 +719,7 @@ function drawBall(){
 
 function drawBeams(){
   for(const bm of S.beams){
-    const a = bm.life/0.9, len = 1800, ex = bm.x + Math.cos(bm.ang)*len, ey = bm.y - Math.sin(bm.ang)*len;
+    const a = bm.life/0.9, len = 2800, ex = bm.x + Math.cos(bm.ang)*len, ey = bm.y - Math.sin(bm.ang)*len;
     ctx.lineCap = 'round';
     ctx.strokeStyle = `rgba(63,227,255,${a*0.35})`; ctx.lineWidth = 48*a + 6; ctx.beginPath(); ctx.moveTo(bm.x,bm.y); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.strokeStyle = `rgba(200,250,255,${a})`; ctx.lineWidth = 10*a + 2; ctx.beginPath(); ctx.moveTo(bm.x,bm.y); ctx.lineTo(ex,ey); ctx.stroke();
@@ -692,13 +796,14 @@ $('swingBtn').addEventListener('pointerdown', e => {
 $('againBtn').addEventListener('click', start);
 $('muteBtn').addEventListener('click', () => { muted = !muted; $('muteBtn').textContent = 'Sound: ' + (muted ? 'off' : 'on'); $('muteBtn').setAttribute('aria-pressed', muted); });
 $('bragBtn').addEventListener('click', () => {
-  const txt = `I knocked ${S.kills} satellites out of orbit in Satellite Slugger (${S.score.toLocaleString()} pts). Ground beats orbit.`;
+  const txt = `I knocked ${S.kills} satellites out of orbit and switched ${S.freed.toLocaleString()} homes to fiber in Satellite Slugger (${S.score.toLocaleString()} pts). Ground beats orbit.`;
   const done = () => { $('bragBtn').textContent = 'Copied'; setTimeout(() => $('bragBtn').textContent = 'Copy my score', 1600); };
   const fallback = () => { const i = $('bragText'); i.value = txt; i.select(); try{ document.execCommand('copy'); done(); }catch(e){ $('bragBtn').textContent = 'Copy failed'; } };
   try{ navigator.clipboard.writeText(txt).then(done, fallback); }catch(e){ fallback(); }
 });
 
 $('brandLine').textContent = 'Presented by ' + BRAND;
+if(CTA_URL){ $('ctaBtn').href = CTA_URL; $('ctaBtn').textContent = CTA_TEXT; $('ctaBtn').hidden = false; }
 $('presented').textContent = BRAND + ' · Ground beats orbit';
 reset();
 requestAnimationFrame(frame);
