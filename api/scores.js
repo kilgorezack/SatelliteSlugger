@@ -1,6 +1,7 @@
 // Satellite Slugger leaderboard — Vercel serverless function backed by Upstash Redis (REST API).
 // Connect "Upstash for Redis" from the Vercel Marketplace; it sets the env vars read below.
 //   GET  /api/scores            -> { scores: [{ id, initials, score, kills }] }   (top 10)
+//   Add ?board=ste for a branded edition's separate board.
 //   POST /api/scores {initials, score, kills} -> { id, scores }
 
 // Vercel lets you pick a custom prefix when connecting storage (e.g. STORAGE_KV_REST_API_URL),
@@ -24,7 +25,11 @@ function findRedis(env) {
   return {};
 }
 const { url: REDIS_URL, token: REDIS_TOKEN } = findRedis(process.env);
-const KEY = process.env.LEADERBOARD_KEY || 'satslugger:board';
+const DEFAULT_KEY = process.env.LEADERBOARD_KEY || 'satslugger:board';
+// Branded editions keep their own boards: /api/scores?board=ste
+const BOARDS = {
+  ste: process.env.LEADERBOARD_KEY_STE || 'ste:board',
+};
 const KEEP = 500; // entries kept in storage; only the top 10 are shown
 
 const BLOCKED = new Set(['ASS','FUK','FUC','FCK','SEX','KKK','NIG','NGR','FAG','CUM','TIT','DIK','DIC','COK','CNT','JIZ','WTF','POS','SHT','XXX','GAY','HOE','NAZ','KYS','PEE','POO']);
@@ -56,6 +61,12 @@ module.exports = async (req, res) => {
   if (!REDIS_URL || !REDIS_TOKEN) {
     return res.status(503).json({ error: 'Leaderboard storage is not connected yet.' });
   }
+
+  const board = String((req.query && req.query.board) || '').toLowerCase();
+  if (board && !Object.prototype.hasOwnProperty.call(BOARDS, board)) {
+    return res.status(404).json({ error: 'No such leaderboard.' });
+  }
+  const KEY = board ? BOARDS[board] : DEFAULT_KEY;
 
   try {
     if (req.method === 'GET') {

@@ -20,6 +20,18 @@ const CTA_TEXT = 'Check fiber at your address';
 const CTA_URL = '';   // set this to show a call-to-action button on the game-over screen
 ```
 
+## STE edition
+
+A version branded for [STE Communications](https://goste.net/) lives at **`/ste`** (e.g. `https://<your-site>/ste`). It uses STE's colors, fonts and logo, links to STE's sign-up page on the game-over screen, and keeps its own leaderboard (`/api/scores?board=ste`, stored under `ste:board`, or set `LEADERBOARD_KEY_STE`).
+
+`ste/index.html` is generated from the main game, so gameplay fixes only need to be made once. After changing `index.html`, rebuild it:
+
+```bash
+python3 brands/build-ste.py
+```
+
+The script stops with an error if a piece of the main game it rebrands has changed, so nothing gets missed silently.
+
 ## Deploy
 
 It's a single static `index.html` with no build step. On Vercel, import the repo and deploy with the default settings (Framework preset: Other).
