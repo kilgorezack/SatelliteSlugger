@@ -13,6 +13,7 @@ img{max-width:100%}
 *,*::before,*::after{box-sizing:border-box}
 </style>
 <title>Satellite Slugger</title>
+<script>try{if(/[?&]embed\b/.test(location.search)||window.self!==window.top)document.documentElement.classList.add('embed')}catch(e){document.documentElement.classList.add('embed')}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Martian+Mono:wght@400;600;800&display=swap">
@@ -143,8 +144,26 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
   .ticker{flex-basis:0;flex-grow:1;font-size:10.5px}
   .ticker b{display:none}
   .ticker span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-  .ghost#muteBtn{padding:6px 10px;font-size:10px}
+  .footer-btns .ghost{padding:6px 10px;font-size:10px}
 }
+.footer-btns{display:flex;gap:8px;flex:none}
+a.ghost{display:inline-block;text-decoration:none;border-radius:5px;font-weight:800;letter-spacing:.06em}
+a.ghost:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
+/* Embed dialog */
+.embed-dlg{background:var(--panel);color:var(--chalk);border:1px solid var(--panel-edge);border-radius:8px;padding:clamp(16px,3vw,24px);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto}
+.embed-dlg::backdrop{background:rgba(4,6,26,.8)}
+.embed-dlg .card{max-width:none;gap:12px}
+.embed-dlg h2{font-size:clamp(22px,4vw,32px)}
+.embed-dlg p{font-size:12px}
+.embed-dlg .small{font-size:11px}
+.embed-dlg textarea{width:100%;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--chalk);background:var(--night);border:1px solid var(--panel-edge);border-radius:5px;padding:10px;resize:none;word-break:break-all}
+.embed-dlg textarea:focus-visible{outline:3px solid var(--fiber);outline-offset:2px}
+/* Embedded in another site: tighter frame, every pixel goes to the game */
+.embed body{padding:8px}
+.embed .wrap{gap:6px}
+.embed .masthead p{display:none}
+.embed .masthead h1{font-size:clamp(18px,3.4vw,28px)}
+.embed .field{min-height:150px}
 @media (prefers-reduced-motion: reduce){.meter.full b,.slot.on .ch{animation:none}}
 </style>
 </head>
@@ -223,9 +242,25 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 
   <footer class="footer">
     <div class="ticker"><b id="tickerLabel">Satellite status</b><span id="ticker">All satellites nominal. For now.</span></div>
-    <button class="ghost" id="muteBtn" aria-pressed="false">Sound: on</button>
+    <div class="footer-btns">
+      <button class="ghost" id="embedBtn" type="button" aria-haspopup="dialog">Embed</button>
+      <button class="ghost" id="fsBtn" type="button" hidden>Full screen</button>
+      <a class="ghost" id="openBtn" target="_blank" rel="noopener" hidden>Open full game ↗</a>
+      <button class="ghost" id="muteBtn" aria-pressed="false">Sound: on</button>
+    </div>
   </footer>
 </div>
+
+<dialog class="embed-dlg" id="embedDlg" aria-labelledby="embedTitle">
+  <form method="dialog" class="card">
+    <h2 id="embedTitle">Embed the <span>game</span></h2>
+    <p>Paste this code into any web page. The game resizes to fit, works with touch, mouse and keyboard, and shares the same high score board.</p>
+    <label for="embedCode" class="small" style="align-self:flex-start">Embed code</label>
+    <textarea id="embedCode" readonly rows="6" spellcheck="false"></textarea>
+    <div class="btnrow"><button type="button" class="go" id="embedCopy">Copy code</button><button class="ghost" value="close">Close</button></div>
+    <p class="small">Players tap or click the game once, then Space swings.</p>
+  </form>
+</dialog>
 
 <script>
 (() => {
@@ -819,7 +854,8 @@ function syncBoard(){
 
 // ---- loop ----
 let last = performance.now();
-function frame(now){ const dt = Math.min(0.033, (now - last)/1000); last = now; update(dt); draw(); syncBoard(); requestAnimationFrame(frame); }
+let paused = false; // true while the embed dialog is open
+function frame(now){ const dt = Math.min(0.033, (now - last)/1000); last = now; if(!paused) update(dt); draw(); syncBoard(); requestAnimationFrame(frame); }
 
 // ---- leaderboard ----
 // Shared board lives at /api/scores (Vercel function + Upstash Redis). If that isn't reachable
@@ -943,6 +979,40 @@ $('bragBtn').addEventListener('click', () => {
   const fallback = () => { const i = $('bragText'); i.value = txt; i.select(); try{ document.execCommand('copy'); done(); }catch(e){ $('bragBtn').textContent = 'Copy failed'; } };
   try{ navigator.clipboard.writeText(txt).then(done, fallback); }catch(e){ fallback(); }
 });
+
+// ---- embed ----
+// Embed code points at this exact page (so a rebranded copy embeds itself) with ?embed=1.
+const EMBEDDED = document.documentElement.classList.contains('embed');
+const GAME_URL = location.origin + location.pathname;
+const embedSrc = GAME_URL + '?embed=1';
+const embedCode = `<iframe src="${embedSrc}" title="${document.title}" width="960" height="720" loading="lazy" allow="autoplay; fullscreen; clipboard-write" allowfullscreen style="display:block;width:100%;max-width:960px;height:auto;aspect-ratio:4/3;min-height:500px;margin:0 auto;border:0;border-radius:8px;background:${getComputedStyle(document.documentElement).getPropertyValue('--night').trim()}"></iframe>`;
+if(EMBEDDED){
+  $('embedBtn').hidden = true;
+  // Keyboard input only reaches an iframe once it has focus: grab it on any tap or click.
+  window.addEventListener('pointerdown', () => { try{ window.focus(); }catch(e){} }, true);
+  const de = document.documentElement;
+  if(document.fullscreenEnabled && de.requestFullscreen){
+    $('fsBtn').hidden = false;
+    $('fsBtn').addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : de.requestFullscreen().catch(() => {}); });
+    document.addEventListener('fullscreenchange', () => { $('fsBtn').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+  } else { $('openBtn').href = GAME_URL; $('openBtn').hidden = false; } // e.g. iPhone Safari has no element fullscreen
+} else {
+  const dlg = $('embedDlg');
+  $('embedCode').value = embedCode;
+  $('embedBtn').addEventListener('click', () => {
+    paused = true; $('embedCopy').textContent = 'Copy code';
+    if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    $('embedCode').select();
+  });
+  dlg.addEventListener('close', () => { paused = false; last = performance.now(); $('embedBtn').focus(); });
+  // Keep game keys (Space, Enter, letters) from leaking into the game while the dialog is up
+  dlg.addEventListener('keydown', e => { if(e.key !== 'Escape') e.stopPropagation(); });
+  $('embedCopy').addEventListener('click', () => {
+    const done = () => { $('embedCopy').textContent = 'Copied'; };
+    const fallback = () => { const t = $('embedCode'); t.focus(); t.select(); try{ document.execCommand('copy'); done(); }catch(e){ $('embedCopy').textContent = 'Select and copy'; } };
+    try{ navigator.clipboard.writeText(embedCode).then(done, fallback); }catch(e){ fallback(); }
+  });
+}
 
 $('brandLine').textContent = 'Presented by ' + BRAND;
 if(CTA_URL){ $('ctaBtn').href = CTA_URL; $('ctaBtn').textContent = CTA_TEXT; $('ctaBtn').hidden = false; }

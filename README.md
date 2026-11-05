@@ -9,6 +9,12 @@ A browser batting game for broadband providers. Time your swing, launch the ball
 - **Gigabit Swing:** every 6 satellites charges a fiber laser that clears everything on its line
 - Three strikes is an out. Three outs ends the game.
 
+## Embed
+
+The **Embed** button under the game gives a copy-and-paste `<iframe>` snippet for putting the game on any website. It points at the page it was copied from.
+
+Embedded copies (`?embed=1`, or any page loaded in a frame) use a tighter layout, grab keyboard focus on the first tap or click so Space swings without scrolling the host page, and swap the Embed button for **Full screen** (or **Open full game ↗** on phones without fullscreen support). The iframe scales with its container (4:3, at least 500px tall) and shares the same leaderboard.
+
 ## Rebrand
 
 Edit the constants at the top of the script in `index.html`:
