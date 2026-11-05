@@ -44,6 +44,8 @@ body{
 /* The page always fits the window: the field takes whatever height is left and stays 16:10 */
 .wrap{max-width:1100px;height:100%;margin:0 auto;display:flex;flex-direction:column;gap:clamp(6px,1.4vh,12px)}
 .wrap > *{flex:none}
+/* --gw = the field's width (set by script) so the bars line up with the game; never squeeze them below 480px, where they'd wrap and steal height */
+.masthead,.board,.footer{width:100%;max-width:max(var(--gw,100%),min(100%,480px));margin-inline:auto}
 .field{flex:1 1 auto !important;min-height:180px;display:flex;align-items:center;justify-content:center;container-type:size}
 
 .masthead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
@@ -52,7 +54,7 @@ body{
 .masthead p{margin:0;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 
 .board{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;container:board / inline-size;
   background:var(--panel-edge);border:1px solid var(--panel-edge);border-radius:6px;overflow:hidden;
 }
 .cell{background:var(--panel);padding:clamp(5px,1vh,8px) 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -117,7 +119,7 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 .cta:focus-visible{outline:3px solid var(--chalk);outline-offset:3px}
 
 .footer{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
-.ticker{flex:1 1 280px;min-width:0;font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline}
+.ticker{flex:1 1 200px;min-width:0;font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline}
 .ticker b{color:var(--flare);transition:color .2s;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
 .ticker b.fiber{color:var(--fiber)}
 .ticker span.fiber{color:#bff6ff}
@@ -131,6 +133,15 @@ button:focus-visible{outline:3px solid var(--fiber);outline-offset:3px}
 .swingBtn.giga{background:var(--fiber);color:#002a33;box-shadow:0 5px 0 #138aa3}
 .swingBtn.giga:active,.swingBtn.giga.hit{box-shadow:0 1px 0 #138aa3}
 .sm{display:none}
+/* Narrower field (short or small windows): keep the scoreboard on one row */
+@container board (max-width:760px){
+  .board .lg{display:none} .board .sm{display:inline}
+  .cell{padding-inline:8px}
+  .cell label{font-size:8.5px;letter-spacing:.07em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell output{font-size:18px}
+  .dots{gap:5px;white-space:nowrap}
+  .dots i{width:9px;height:9px;margin-left:2px}
+}
 @media (max-width:600px){
   .masthead{gap:2px 12px}
   .masthead p{font-size:9px}
@@ -855,6 +866,10 @@ function syncBoard(){
 // ---- loop ----
 let last = performance.now();
 let paused = false; // true while the embed dialog is open
+// Size the masthead, scoreboard and footer to the field's actual width (it letterboxes to 16:10)
+{ const stage = $('stage'), root = document.documentElement; let gw = 0, raf = 0;
+  const fit = () => { raf = 0; const w = +stage.getBoundingClientRect().width.toFixed(2); if(w && w !== gw){ gw = w; root.style.setProperty('--gw', w + 'px'); } };
+  new ResizeObserver(() => { if(!raf) raf = requestAnimationFrame(fit); }).observe(stage); fit(); }
 function frame(now){ const dt = Math.min(0.033, (now - last)/1000); last = now; if(!paused) update(dt); draw(); syncBoard(); requestAnimationFrame(frame); }
 
 // ---- leaderboard ----
